@@ -14,9 +14,8 @@ const app = express();
 // 1. MIDDLEWARE (Must come BEFORE routes)
 // ==========================================
 app.use(cors({
-    origin: 'https://momentum-ed.vercel.app', // Your exact Vercel frontend URL
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    credentials: true
+  origin: true,
+  credentials: true
 }));
 app.use(express.json()); // Parses incoming JSON requests
 
