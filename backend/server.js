@@ -4,7 +4,7 @@ const dotenv = require('dotenv');
 const cors = require('cors');
 
 const authRoutes = require('./routes/authRoutes');
-const doubtRoutes = require('./routes/doubtRoutes');
+//const doubtRoutes = require('./routes/doubtRoutes');
 
 dotenv.config();
 
@@ -27,7 +27,7 @@ mongoose.connect(process.env.MONGO_URI, {
 
 // Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/doubts', doubtRoutes);
+//app.use('/api/doubts', doubtRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {
