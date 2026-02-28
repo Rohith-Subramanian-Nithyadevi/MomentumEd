@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-    // Make sure to include /api at the end of your Render URL
+    // Add /api to the end of this URL
     baseURL: 'https://momentumed.onrender.com/api', 
 });
 

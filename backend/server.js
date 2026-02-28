@@ -35,9 +35,9 @@ app.use((err, req, res, next) => {
     res.status(500).json({ message: 'Internal Server Error', error: err.message });
 });
 app.use(cors({
-    origin: ['http://localhost:5173', 'https://momentum-ed.vercel.app'], // Add your Vercel URL
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-    credentials: true // Important if you use cookies later
+    origin: 'https://momentum-ed.vercel.app', // Your exact Vercel frontend URL
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    credentials: true
 }));
 app.use(express.json({ limit: '10kb' }));
 const PORT = process.env.PORT || 5000;
