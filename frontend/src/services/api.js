@@ -1,10 +1,10 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: 'https://momentumed.onrender.com/api', // Change to Render URL in production
+    // Make sure to include /api at the end of your Render URL
+    baseURL: 'https://momentumed.onrender.com/api', 
 });
 
-// Automatically attach token to every request if it exists
 api.interceptors.request.use((config) => {
     const user = JSON.parse(localStorage.getItem('momentum_user'));
     if (user && user.token) {
