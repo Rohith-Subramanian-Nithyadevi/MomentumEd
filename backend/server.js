@@ -5,7 +5,7 @@ const cors = require('cors');
 
 const authRoutes = require('./routes/authRoutes');
 // const doubtRoutes = require('./routes/doubtRoutes');
-
+//Change
 dotenv.config();
 
 const app = express();
