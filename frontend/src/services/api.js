@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: 'https://momentumed.onrender.com', // Change to Render URL in production
+    baseURL: 'https://momentumed.onrender.com/api', // Change to Render URL in production
 });
 
 // Automatically attach token to every request if it exists
