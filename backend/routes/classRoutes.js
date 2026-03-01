@@ -11,7 +11,10 @@ const {
     deleteMaterial,
     updateTimetable,
     getClassStudents,
-    removeUserFromClass
+    removeUserFromClass,
+    createAnnouncement, 
+    voteOnPoll, 
+    deleteAnnouncement
 } = require('../controllers/classController');
 
 const { protect } = require('../middleware/authMiddleware');
@@ -32,4 +35,8 @@ router.get('/:id/students', protect, getClassStudents);
 router.post('/:id/materials', protect, uploadMaterial);
 router.delete('/:id/materials/:materialId', protect, deleteMaterial);
 router.delete('/:id/remove-user/:userId', protect, removeUserFromClass);
+// Announcements & Polls
+router.post('/:id/announcements', protect, createAnnouncement);
+router.post('/:id/announcements/:announcementId/vote', protect, voteOnPoll);
+router.delete('/:id/announcements/:announcementId', protect, deleteAnnouncement);
 module.exports = router;

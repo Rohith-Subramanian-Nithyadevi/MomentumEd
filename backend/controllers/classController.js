@@ -226,3 +226,64 @@ exports.removeUserFromClass = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+// @desc    Create an announcement or poll (Advisor Only)
+// @route   POST /api/classes/:id/announcements
+exports.createAnnouncement = async (req, res) => {
+    try {
+        const { title, content, isPoll, pollOptions } = req.body;
+        const classGroup = await ClassGroup.findById(req.params.id);
+        
+        if (classGroup.advisor._id.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: 'Only advisors can post announcements' });
+        }
+
+        // Format poll options if it's a poll
+        const formattedOptions = isPoll ? pollOptions.map(opt => ({ optionText: opt, votes: [] })) : [];
+
+        // unshift puts the newest announcement at the top of the array
+        classGroup.announcements.unshift({
+            title, content, postedBy: req.user._id, isPoll, pollOptions: formattedOptions
+        });
+
+        await classGroup.save();
+        res.status(201).json({ message: 'Announcement posted' });
+    } catch (error) { res.status(500).json({ message: error.message }); }
+};
+
+// @desc    Vote on a poll
+// @route   POST /api/classes/:id/announcements/:announcementId/vote
+exports.voteOnPoll = async (req, res) => {
+    try {
+        const { id, announcementId } = req.params;
+        const { optionId } = req.body;
+        const classGroup = await ClassGroup.findById(id);
+        
+        const announcement = classGroup.announcements.id(announcementId);
+        if (!announcement || !announcement.isPoll) return res.status(404).json({ message: 'Poll not found' });
+
+        // Remove the user's previous vote from all options (so they can only vote once)
+        announcement.pollOptions.forEach(opt => {
+            opt.votes = opt.votes.filter(userId => userId.toString() !== req.user._id.toString());
+        });
+
+        // Add the new vote to the selected option
+        const selectedOption = announcement.pollOptions.id(optionId);
+        selectedOption.votes.push(req.user._id);
+
+        await classGroup.save();
+        res.json({ message: 'Vote recorded' });
+    } catch (error) { res.status(500).json({ message: error.message }); }
+};
+
+// @desc    Delete an announcement (Advisor Only)
+// @route   DELETE /api/classes/:id/announcements/:announcementId
+exports.deleteAnnouncement = async (req, res) => {
+    try {
+        const classGroup = await ClassGroup.findByIdAndUpdate(
+            req.params.id,
+            { $pull: { announcements: { _id: req.params.announcementId } } },
+            { new: true }
+        );
+        res.json({ message: 'Announcement deleted' });
+    } catch (error) { res.status(500).json({ message: error.message }); }
+};
