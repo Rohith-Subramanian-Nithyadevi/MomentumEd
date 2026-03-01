@@ -22,10 +22,8 @@ app.use(express.json()); // Parses incoming JSON requests
 // ==========================================
 // 2. DATABASE CONNECTION
 // ==========================================
-mongoose.connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-}).then(() => {
+// Modern Mongoose only needs the URI!
+mongoose.connect(process.env.MONGO_URI).then(() => {
     console.log('✅ MongoDB Connected Successfully');
 }).catch((err) => {
     console.error('❌ MongoDB Connection Error:', err);
