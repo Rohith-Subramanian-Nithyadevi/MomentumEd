@@ -19,14 +19,18 @@ const ClassDashboard = () => {
     const [annTitle, setAnnTitle] = useState('');
     const [annContent, setAnnContent] = useState('');
     const [isPoll, setIsPoll] = useState(false);
-    const [pollOptions, setPollOptions] = useState(['', '']); // Start with 2 empty options
+    const [pollOptions, setPollOptions] = useState(['', '']); 
+    const [expandedVoters, setExpandedVoters] = useState({}); // NEW: Tracks which poll option's voters are visible
 
-    // --- ADVISOR: TIMETABLE & ROSTER ---
+    // --- ROSTER & PROFILE MODAL STATES ---
+    const [students, setStudents] = useState([]);
+    const [selectedProfile, setSelectedProfile] = useState(null); // NEW: Holds the data of the clicked user
+
+    // --- ADVISOR: TIMETABLE STATES ---
     const [isEditingTimetable, setIsEditingTimetable] = useState(false);
     const [numPeriods, setNumPeriods] = useState(6);
     const [scheduleData, setScheduleData] = useState({}); 
     const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-    const [students, setStudents] = useState([]);
 
     // --- WORKSPACE STATES (Materials, Doubts, Assignments) ---
     const [isUploading, setIsUploading] = useState(false);
@@ -63,28 +67,29 @@ const ClassDashboard = () => {
         } catch (err) {}
     };
 
+    // Note: Teachers and Advisors both fetch students now
     useEffect(() => {
         fetchClassDetails();
-        if (user?.role === 'advisor') fetchStudents();
+        if (user?.role === 'advisor' || user?.role === 'teacher') fetchStudents();
     }, [id, user]);
 
     useEffect(() => {
         if (selectedCourse) fetchSubjectData(selectedCourse.subjectName);
     }, [selectedCourse]);
 
-    // --- HELPERS ---
+    // --- HELPERS & PERMISSIONS ---
     const toggleDoubt = (doubtId) => setExpandedDoubts(prev => ({ ...prev, [doubtId]: !prev[doubtId] }));
     const toggleAssignment = (assignmentId) => setExpandedAssignments(prev => ({ ...prev, [assignmentId]: !prev[assignmentId] }));
+    const toggleVoters = (optionId) => setExpandedVoters(prev => ({ ...prev, [optionId]: !prev[optionId] }));
 
     const isAdvisor = user?.role === 'advisor';
     const isCourseTeacher = user?.role === 'teacher' && user._id === selectedCourse?.user?._id;
     const canModerate = isAdvisor || isCourseTeacher;
+    const canViewRoster = isAdvisor || user?.role === 'teacher'; // Both can view the roster now
 
     // --- ANNOUNCEMENT & POLL HANDLERS ---
     const handlePollOptionChange = (index, value) => {
-        const newOptions = [...pollOptions];
-        newOptions[index] = value;
-        setPollOptions(newOptions);
+        const newOptions = [...pollOptions]; newOptions[index] = value; setPollOptions(newOptions);
     };
     const addPollOption = () => setPollOptions([...pollOptions, '']);
     const removePollOption = (index) => setPollOptions(pollOptions.filter((_, i) => i !== index));
@@ -92,15 +97,10 @@ const ClassDashboard = () => {
     const handleCreateAnnouncement = async (e) => {
         e.preventDefault();
         try {
-            // Filter out empty options if it's a poll
             const validOptions = isPoll ? pollOptions.filter(opt => opt.trim() !== '') : [];
             if (isPoll && validOptions.length < 2) return alert("Polls require at least 2 valid options.");
-
-            await api.post(`/classes/${id}/announcements`, { 
-                title: annTitle, content: annContent, isPoll, pollOptions: validOptions 
-            });
-            setAnnTitle(''); setAnnContent(''); setIsPoll(false); setPollOptions(['', '']); setShowAnnounceForm(false);
-            fetchClassDetails();
+            await api.post(`/classes/${id}/announcements`, { title: annTitle, content: annContent, isPoll, pollOptions: validOptions });
+            setAnnTitle(''); setAnnContent(''); setIsPoll(false); setPollOptions(['', '']); setShowAnnounceForm(false); fetchClassDetails();
         } catch (err) { alert('Failed to post announcement'); }
     };
 
@@ -113,30 +113,20 @@ const ClassDashboard = () => {
     const handleVote = async (announcementId, optionId) => {
         try {
             await api.post(`/classes/${id}/announcements/${announcementId}/vote`, { optionId });
-            fetchClassDetails(); // Refresh to show new vote counts
+            fetchClassDetails(); 
         } catch (err) { alert('Failed to cast vote'); }
     };
 
     // --- TIMETABLE, ROSTER, CLASS HANDLERS ---
-    const generateGrid = () => {
-        const initial = {}; daysOfWeek.forEach(day => { initial[day] = Array(Number(numPeriods)).fill(''); }); setScheduleData(initial);
-    };
-    const handleCellChange = (day, index, value) => {
-        setScheduleData(prev => { const newDay = [...(prev[day] || [])]; newDay[index] = value; return { ...prev, [day]: newDay }; });
-    };
-    const handleSaveTimetable = async () => {
-        try { await api.put(`/classes/${id}/timetable`, { timetableData: scheduleData }); setIsEditingTimetable(false); fetchClassDetails(); } catch (err) { alert('Failed to save'); }
-    };
+    const generateGrid = () => { const initial = {}; daysOfWeek.forEach(day => { initial[day] = Array(Number(numPeriods)).fill(''); }); setScheduleData(initial); };
+    const handleCellChange = (day, index, value) => { setScheduleData(prev => { const newDay = [...(prev[day] || [])]; newDay[index] = value; return { ...prev, [day]: newDay }; }); };
+    const handleSaveTimetable = async () => { try { await api.put(`/classes/${id}/timetable`, { timetableData: scheduleData }); setIsEditingTimetable(false); fetchClassDetails(); } catch (err) { alert('Failed to save'); } };
     const handleRemoveUser = async (userId, role) => {
         if (window.confirm(`Are you sure you want to remove this ${role} from the classroom?`)) {
             try { await api.delete(`/classes/${id}/remove-user/${userId}`); fetchClassDetails(); if (role === 'student') fetchStudents(); } catch (err) { alert('Failed to remove'); }
         }
     };
-    const handleDeleteClass = async () => {
-        if (window.confirm('Delete this entire class?')) {
-            try { await api.delete(`/classes/${id}`); navigate('/dashboard'); } catch (err) { alert('Failed to delete class'); }
-        }
-    };
+    const handleDeleteClass = async () => { if (window.confirm('Delete this entire class?')) { try { await api.delete(`/classes/${id}`); navigate('/dashboard'); } catch (err) { alert('Failed to delete class'); } } };
 
     // --- WORKSPACE HANDLERS (Materials, Doubts, Assignments) ---
     const handleDeleteMaterial = async (matId) => { if (window.confirm('Delete?')) { try { await api.delete(`/classes/${id}/materials/${matId}`); fetchClassDetails(); } catch(err){} } };
@@ -154,7 +144,31 @@ const ClassDashboard = () => {
     if (!classData) return <div className="min-h-screen bg-brand-100 flex items-center justify-center"><p className="text-red-500 font-bold">Classroom not found.</p></div>;
 
     return (
-        <div className="min-h-screen bg-brand-100 font-sans pb-20">
+        <div className="min-h-screen bg-brand-100 font-sans pb-20 relative">
+            
+            {/* --- PROFILE MODAL --- */}
+            {selectedProfile && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[60] flex items-center justify-center p-4 animate-fade-in-up">
+                    <div className="bg-white rounded-[32px] p-8 max-w-sm w-full shadow-2xl border border-brand-200 relative text-center">
+                        <button onClick={() => setSelectedProfile(null)} className="absolute top-5 right-6 text-slate-400 hover:text-red-500 text-xl font-bold transition-colors">✖</button>
+                        
+                        <div className="w-20 h-20 bg-brand-100 rounded-full flex items-center justify-center text-4xl text-brand-500 font-bold mx-auto mb-4">
+                            {selectedProfile.name?.charAt(0)}
+                        </div>
+                        <h3 className="text-2xl font-bold text-slate-800 mb-1">{selectedProfile.name}</h3>
+                        <p className="text-xs font-black text-brand-500 uppercase tracking-widest mb-6">{selectedProfile.role}</p>
+                        
+                        <div className="space-y-3 bg-slate-50 p-6 rounded-2xl border border-slate-100 text-left">
+                            <div className="flex justify-between items-center"><span className="text-slate-500 text-xs font-bold uppercase tracking-wide">Email</span> <span className="text-slate-800 text-sm font-medium">{selectedProfile.email}</span></div>
+                            {selectedProfile.rollNo && <div className="flex justify-between items-center"><span className="text-slate-500 text-xs font-bold uppercase tracking-wide">Roll No</span> <span className="text-slate-800 text-sm font-medium">{selectedProfile.rollNo}</span></div>}
+                            {selectedProfile.phone && <div className="flex justify-between items-center"><span className="text-slate-500 text-xs font-bold uppercase tracking-wide">Phone</span> <span className="text-slate-800 text-sm font-medium">{selectedProfile.phone}</span></div>}
+                            {selectedProfile.gender && <div className="flex justify-between items-center"><span className="text-slate-500 text-xs font-bold uppercase tracking-wide">Gender</span> <span className="text-slate-800 text-sm font-medium">{selectedProfile.gender}</span></div>}
+                            {selectedProfile.subjectName && <div className="flex justify-between items-center"><span className="text-slate-500 text-xs font-bold uppercase tracking-wide">Subject</span> <span className="text-slate-800 text-sm font-medium">{selectedProfile.subjectName}</span></div>}
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <nav className="bg-white/70 backdrop-blur-md border-b border-brand-200 sticky top-0 z-10 px-6 py-4">
                 <div className="max-w-6xl mx-auto flex justify-between items-center">
                     {selectedCourse ? (
@@ -206,7 +220,7 @@ const ClassDashboard = () => {
                                 )}
                             </div>
 
-                            {/* Post Announcement/Poll Form (Advisor Only) */}
+                            {/* Post Announcement/Poll Form */}
                             {showAnnounceForm && isAdvisor && (
                                 <div className="bg-white p-6 md:p-8 rounded-[32px] border border-brand-200 shadow-sm mb-6 animate-fade-in-up">
                                     <form onSubmit={handleCreateAnnouncement} className="flex flex-col gap-4">
@@ -244,7 +258,6 @@ const ClassDashboard = () => {
                                     </div>
                                 ) : (
                                     classData.announcements.map((ann) => {
-                                        // Calculate total votes if it's a poll
                                         const totalVotes = ann.isPoll ? ann.pollOptions.reduce((sum, opt) => sum + opt.votes.length, 0) : 0;
                                         
                                         return (
@@ -260,27 +273,48 @@ const ClassDashboard = () => {
                                                 </div>
                                                 <p className="text-slate-600 mb-6">{ann.content}</p>
 
-                                                {/* Render Poll UI if applicable */}
+                                                {/* Render Poll UI */}
                                                 {ann.isPoll && (
                                                     <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200">
                                                         <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Live Poll • {totalVotes} {totalVotes === 1 ? 'Vote' : 'Votes'}</p>
-                                                        <div className="space-y-3">
+                                                        <div className="space-y-4">
                                                             {ann.pollOptions.map((opt) => {
                                                                 const voteCount = opt.votes.length;
                                                                 const percent = totalVotes === 0 ? 0 : Math.round((voteCount / totalVotes) * 100);
-                                                                const hasVotedForThis = opt.votes.includes(user?._id);
+                                                                
+                                                                // Safely check if current user voted, relying on the populated _id
+                                                                const hasVotedForThis = opt.votes.some(voter => (voter._id || voter) === user?._id);
 
                                                                 return (
-                                                                    <div key={opt._id} onClick={() => handleVote(ann._id, opt._id)} className={`relative overflow-hidden rounded-xl border p-3 cursor-pointer transition-all ${hasVotedForThis ? 'border-brand-500 bg-brand-50' : 'border-slate-200 bg-white hover:border-brand-300'}`}>
-                                                                        {/* Progress Bar Background */}
-                                                                        <div className="absolute left-0 top-0 bottom-0 bg-brand-100 transition-all duration-500" style={{ width: `${percent}%` }}></div>
-                                                                        
-                                                                        <div className="relative z-10 flex justify-between items-center">
-                                                                            <span className={`font-bold text-sm ${hasVotedForThis ? 'text-brand-700' : 'text-slate-700'}`}>
-                                                                                {hasVotedForThis && '✅ '} {opt.optionText}
-                                                                            </span>
-                                                                            <span className="text-xs font-bold text-slate-500">{percent}% ({voteCount})</span>
+                                                                    <div key={opt._id} className="flex flex-col gap-2">
+                                                                        <div onClick={() => handleVote(ann._id, opt._id)} className={`relative overflow-hidden rounded-xl border p-3 cursor-pointer transition-all ${hasVotedForThis ? 'border-brand-500 bg-brand-50' : 'border-slate-200 bg-white hover:border-brand-300'}`}>
+                                                                            <div className="absolute left-0 top-0 bottom-0 bg-brand-100 transition-all duration-500" style={{ width: `${percent}%` }}></div>
+                                                                            <div className="relative z-10 flex justify-between items-center">
+                                                                                <span className={`font-bold text-sm ${hasVotedForThis ? 'text-brand-700' : 'text-slate-700'}`}>
+                                                                                    {hasVotedForThis && '✅ '} {opt.optionText}
+                                                                                </span>
+                                                                                <span className="text-xs font-bold text-slate-500">{percent}% ({voteCount})</span>
+                                                                            </div>
                                                                         </div>
+                                                                        
+                                                                        {/* Dropdown to View Voters */}
+                                                                        {voteCount > 0 && (
+                                                                            <div className="ml-2">
+                                                                                <button onClick={() => toggleVoters(opt._id)} className="text-[10px] font-bold text-brand-600 hover:text-brand-800 flex items-center gap-1 transition-colors">
+                                                                                    {expandedVoters[opt._id] ? '▲ Hide Voters' : '▼ View Voters'}
+                                                                                </button>
+                                                                                {expandedVoters[opt._id] && (
+                                                                                    <div className="mt-2 pl-3 border-l-2 border-brand-200 space-y-1.5 animate-fade-in-up">
+                                                                                        {opt.votes.map(voter => (
+                                                                                            <div key={voter._id || Math.random()} className="text-xs text-slate-600 font-medium">
+                                                                                                {voter.name || 'Unknown User'} 
+                                                                                                {voter.rollNo && <span className="text-[9px] text-slate-400 ml-1">({voter.rollNo})</span>}
+                                                                                            </div>
+                                                                                        ))}
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        )}
                                                                     </div>
                                                                 );
                                                             })}
@@ -363,8 +397,8 @@ const ClassDashboard = () => {
                             )}
                         </section>
 
-                        {/* --- ADVISOR: CLASS ROSTER --- */}
-                        {isAdvisor && (
+                        {/* --- ROSTER & MODERATION (Visible to Advisors AND Teachers) --- */}
+                        {canViewRoster && (
                             <section className="bg-white rounded-[32px] p-8 border border-brand-200 shadow-sm mb-10">
                                 <h2 className="text-2xl font-bold text-slate-800 mb-8 flex items-center gap-3"><span className="text-3xl">👥</span> Class Roster & Moderation</h2>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
@@ -374,8 +408,19 @@ const ClassDashboard = () => {
                                             <ul className="space-y-3">
                                                 {classData.teachers.map((t, i) => (
                                                     <li key={i} className="flex justify-between items-center bg-brand-50 p-3 rounded-xl border border-brand-100 group">
-                                                        <div className="flex items-center gap-3"><div className="w-8 h-8 bg-brand-200 rounded-full flex items-center justify-center text-brand-600 font-bold text-xs">{t.user?.name?.charAt(0)}</div><div><p className="text-sm font-bold text-slate-800 leading-none">{t.user?.name}</p><p className="text-[10px] text-slate-500">{t.subjectName}</p></div></div>
-                                                        <button onClick={() => handleRemoveUser(t.user._id, 'teacher')} className="px-3 py-1 bg-white text-red-500 text-xs font-bold rounded-lg border border-red-100 opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white transition-all">Remove</button>
+                                                        {/* Clickable Profile Trigger */}
+                                                        <div 
+                                                            className="flex items-center gap-3 cursor-pointer hover:opacity-75 transition-opacity"
+                                                            onClick={() => setSelectedProfile({ ...t.user, subjectName: t.subjectName, role: 'Instructor' })}
+                                                        >
+                                                            <div className="w-8 h-8 bg-brand-200 rounded-full flex items-center justify-center text-brand-600 font-bold text-xs">{t.user?.name?.charAt(0)}</div>
+                                                            <div>
+                                                                <p className="text-sm font-bold text-slate-800 leading-none">{t.user?.name}</p>
+                                                                <p className="text-[10px] text-slate-500 mt-0.5">{t.subjectName}</p>
+                                                            </div>
+                                                        </div>
+                                                        {/* Only Advisors can remove users */}
+                                                        {isAdvisor && <button onClick={() => handleRemoveUser(t.user._id, 'teacher')} className="px-3 py-1 bg-white text-red-500 text-xs font-bold rounded-lg border border-red-100 opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white transition-all">Remove</button>}
                                                     </li>
                                                 ))}
                                             </ul>
@@ -387,8 +432,19 @@ const ClassDashboard = () => {
                                             <ul className="space-y-3 max-h-80 overflow-y-auto pr-2">
                                                 {students.map((s) => (
                                                     <li key={s._id} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-200 group">
-                                                        <div className="flex items-center gap-3"><div className="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center text-slate-600 font-bold text-xs">{s.name.charAt(0)}</div><div><p className="text-sm font-bold text-slate-800 leading-none">{s.name}</p><p className="text-[10px] text-slate-500">{s.rollNo || s.email}</p></div></div>
-                                                        <button onClick={() => handleRemoveUser(s._id, 'student')} className="px-3 py-1 bg-white text-red-500 text-xs font-bold rounded-lg border border-red-100 opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white transition-all">Remove</button>
+                                                        {/* Clickable Profile Trigger */}
+                                                        <div 
+                                                            className="flex items-center gap-3 cursor-pointer hover:opacity-75 transition-opacity"
+                                                            onClick={() => setSelectedProfile({ ...s, role: 'Student' })}
+                                                        >
+                                                            <div className="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center text-slate-600 font-bold text-xs">{s.name.charAt(0)}</div>
+                                                            <div>
+                                                                <p className="text-sm font-bold text-slate-800 leading-none">{s.name}</p>
+                                                                <p className="text-[10px] text-slate-500 mt-0.5">{s.rollNo || s.email}</p>
+                                                            </div>
+                                                        </div>
+                                                        {/* Only Advisors can remove users */}
+                                                        {isAdvisor && <button onClick={() => handleRemoveUser(s._id, 'student')} className="px-3 py-1 bg-white text-red-500 text-xs font-bold rounded-lg border border-red-100 opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white transition-all">Remove</button>}
                                                     </li>
                                                 ))}
                                             </ul>
@@ -535,7 +591,7 @@ const ClassDashboard = () => {
                             </div>
                         )}
 
-                        {/* TAB 3: DOUBTS (Unchanged from previous iteration) */}
+                        {/* TAB 3: DOUBTS */}
                         {courseTab === 'doubts' && (
                             <div className="space-y-6 md:space-y-8">
                                 {user?.role === 'student' && (

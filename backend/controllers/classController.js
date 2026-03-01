@@ -100,15 +100,13 @@ exports.getClassById = async (req, res) => {
     try {
         const classGroup = await ClassGroup.findById(req.params.id)
             .populate('advisor', 'name email')
-            .populate('teachers.user', 'name email')
-            .populate('students', 'name email')
-            .populate('materials.uploadedBy', 'name');
+            .populate('teachers.user', 'name email phone gender')
+            .populate('announcements.postedBy', 'name role')
+            // 👇 THIS NEW LINE GRABS THE VOTER DETAILS 👇
+            .populate('announcements.pollOptions.votes', 'name rollNo role email'); 
 
-        if (!classGroup) {
-            return res.status(404).json({ message: 'Class not found' });
-        }
-
-        res.status(200).json(classGroup);
+        if (!classGroup) return res.status(404).json({ message: 'Class not found' });
+        res.json(classGroup);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -191,11 +189,10 @@ exports.updateTimetable = async (req, res) => {
 // @route   GET /api/classes/:id/students
 exports.getClassStudents = async (req, res) => {
     try {
-        // Find all users who are 'student' and have this class ID in their enrolledClasses array
         const students = await User.find({ 
             role: 'student', 
             enrolledClasses: req.params.id 
-        }).select('name email rollNo'); // Only send back safe data
+        }).select('-password'); // 👈 Changed to '-password' so it safely sends all profile info
         
         res.json(students);
     } catch (error) {
