@@ -10,7 +10,7 @@ const generateGroupCode = () => {
 // @route   POST /api/classes
 exports.createClass = async (req, res) => {
     try {
-        const { className, subject } = req.body;
+        const { className} = req.body;
 
         // Generate a unique 6-character group code
         let groupCode = generateGroupCode();
@@ -21,7 +21,6 @@ exports.createClass = async (req, res) => {
 
         const newClass = await ClassGroup.create({
             className,
-            subject,
             groupCode,
             advisor: req.user._id
         });

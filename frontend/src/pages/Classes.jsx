@@ -74,7 +74,6 @@ const Classes = () => {
                     <h3>Create a New Class</h3>
                     <form onSubmit={handleCreateClass} style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
                         <input type="text" placeholder="Class Name (e.g., CS Section A)" value={className} onChange={(e) => setClassName(e.target.value)} required style={{ flex: 1, padding: '10px' }} />
-                        <input type="text" placeholder="Subject (e.g., Data Structures)" value={subject} onChange={(e) => setSubject(e.target.value)} required style={{ flex: 1, padding: '10px' }} />
                         <button type="submit" style={{ padding: '10px 20px', backgroundColor: '#0056b3', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Generate Class</button>
                     </form>
                 </div>

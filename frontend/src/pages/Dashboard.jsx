@@ -33,7 +33,7 @@ const Dashboard = () => {
                         <h3>Teacher Actions</h3>
                         <ul>
                             <li><Link to="/doubts">View and Answer Doubts</Link></li>
-                            <li style={{ color: '#999' }}>Upload Materials (Coming Soon)</li>
+                            <li><Link to="/classes">Manage Classrooms</Link></li>
                         </ul>
                     </div>
                 )}

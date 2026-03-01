@@ -2,7 +2,6 @@ const mongoose = require('mongoose');
 
 const classGroupSchema = new mongoose.Schema({
     className: { type: String, required: true },
-    subject: { type: String, required: true }, // Overall branch/course (e.g., Computer Science)
     groupCode: { type: String, required: true, unique: true },
     advisor: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     students: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
