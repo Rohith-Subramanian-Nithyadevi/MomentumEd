@@ -13,7 +13,7 @@ const Classes = () => {
     
     // State for joining a class (Everyone)
     const [joinCode, setJoinCode] = useState('');
-    const [teacherSubject, setTeacherSubject] = useState('');
+    const [teacherSubject, setTeacherSubject] = useState(''); // Stores the Teacher's subject folder name
     const [message, setMessage] = useState('');
 
     const fetchMyClasses = async () => {
@@ -94,7 +94,7 @@ const Classes = () => {
                             style={{ flex: 1, minWidth: '200px', padding: '10px', textTransform: 'uppercase' }} 
                         />
                         
-                        {/* 👇 ONLY SHOW THIS TO TEACHERS 👇 */}
+                        {/* 👇 ONLY SHOW THIS INPUT TO TEACHERS 👇 */}
                         {user?.role === 'teacher' && (
                             <input 
                                 type="text" 
@@ -119,14 +119,12 @@ const Classes = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '15px' }}>
                     {myClasses.map((cls) => (
                         <div key={cls._id} style={{ border: '1px solid #ccc', padding: '20px', borderRadius: '8px', borderLeft: '5px solid #0056b3' }}>
-                            
-                            {/* 👇 TURN THE TITLE INTO A LINK 👇 */}
+                            {/* The Clickable Link to enter the classroom */}
                             <h4 style={{ margin: '0 0 5px 0', fontSize: '22px' }}>
                                 <Link to={`/class/${cls._id}`} style={{ textDecoration: 'none', color: '#0056b3' }}>
                                     {cls.className} ➔
                                 </Link>
                             </h4>
-
                             <p style={{ margin: '0 0 10px 0', color: '#555' }}>Course: {cls.subject}</p>
                             <p style={{ margin: '0', fontSize: '14px', backgroundColor: '#eee', display: 'inline-block', padding: '5px 10px', borderRadius: '4px' }}>
                                 Group Code: <strong style={{ letterSpacing: '2px' }}>{cls.groupCode}</strong>
