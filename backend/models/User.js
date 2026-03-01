@@ -5,16 +5,17 @@ const userSchema = new mongoose.Schema({
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
-    role: { type: String, enum: ['student', 'teacher'], default: 'student' }
+    // Added 'advisor' and 'admin'
+    role: { type: String, enum: ['student', 'teacher', 'advisor', 'admin'], default: 'student' },
+    // Students are auto-verified. Teachers/Advisors need Admin approval.
+    isVerified: { type: Boolean, default: false },
+    // Tracks which classes the user belongs to
+    enrolledClasses: [{ type: mongoose.Schema.Types.ObjectId, ref: 'ClassGroup' }]
 }, { timestamps: true });
 
 // Hash password before saving
-// Hash password before saving (Modern Mongoose v9+ pattern)
 userSchema.pre('save', async function() {
-    // If the password wasn't changed, just return and do nothing
-    if (!this.isModified('password')) return; 
-    
-    // Otherwise, hash the new password
+    if (!this.isModified('password')) return;
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
 });

@@ -5,6 +5,7 @@ const cors = require('cors');
 
 const authRoutes = require('./routes/authRoutes');
 const doubtRoutes = require('./routes/doubtRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 dotenv.config();
 
 const app = express();
@@ -33,6 +34,7 @@ mongoose.connect(process.env.MONGO_URI).then(() => {
 // ==========================================
 app.use('/api/auth', authRoutes);
 app.use('/api/doubts', doubtRoutes);
+app.use('/api/admin', adminRoutes);
 
 // ==========================================
 // 4. GLOBAL ERROR HANDLER (Must come LAST)
