@@ -1,18 +1,21 @@
 const express = require('express');
-const { createClass, joinClass, getMyClasses } = require('../controllers/classController');
+
+// 👇 We only need this ONE import line 👇
 const { createClass, joinClass, getMyClasses, getClassById } = require('../controllers/classController');
 const { protect, restrictTo } = require('../middleware/authMiddleware');
+
 const router = express.Router();
 
-
-// Get the user's classes (available to everyone who is logged in)
+// Get the user's classes 
 router.get('/my-classes', protect, getMyClasses);
 
-// Join a class using a code (available to students, teachers, and advisors)
+// Join a class using a code 
 router.post('/join', protect, joinClass);
 
-// Create a class (ONLY available to Class Advisors)
+// Create a class 
 router.post('/', protect, restrictTo('advisor'), createClass);
+
+// Get a specific class by ID
 router.get('/:id', protect, getClassById);
 
 module.exports = router;

@@ -17,6 +17,14 @@ function App() {
                     <Route path="/login" element={<Login />} />
                     <Route path="/register" element={<Register />} />
                     <Route 
+                        path="/dashboard" 
+                        element={
+                            <ProtectedRoute>
+                                <Dashboard />
+                            </ProtectedRoute>
+                        } 
+                    />
+                    <Route 
                         path="/doubts" 
                         element={
                             <ProtectedRoute>
@@ -25,10 +33,10 @@ function App() {
                         } 
                     />
                     <Route 
-                        path="/dashboard" 
+                        path="/admin" 
                         element={
                             <ProtectedRoute>
-                                <Dashboard />
+                                <AdminDashboard />
                             </ProtectedRoute>
                         } 
                     />
@@ -45,14 +53,6 @@ function App() {
                         element={
                             <ProtectedRoute>
                                 <ClassDashboard />
-                            </ProtectedRoute>
-                        } 
-                    />
-                    <Route 
-                        path="/admin" 
-                        element={
-                            <ProtectedRoute>
-                                <AdminDashboard />
                             </ProtectedRoute>
                         } 
                     />
