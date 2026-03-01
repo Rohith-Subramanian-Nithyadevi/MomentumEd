@@ -28,16 +28,23 @@ const Dashboard = () => {
         const fetchDashboardData = async () => {
             try {
                 const profileRes = await api.get('/users/profile');
-                setProfileData(profileRes.data);
+                // Merge database profile with Context user to guarantee Name/Email
+                setProfileData({ 
+                    ...profileRes.data,
+                    name: user.name, 
+                    email: user.email 
+                });
                 
-                const classesRes = await api.get('/classes/my-classes');
-                setMyClasses(classesRes.data);
+                if (user.role !== 'admin') {
+                    const classesRes = await api.get('/classes/my-classes');
+                    setMyClasses(classesRes.data);
+                }
             } catch (err) {
                 console.error('Failed to fetch dashboard data', err);
             }
         };
         fetchDashboardData();
-    }, []);
+    }, [user]);
 
     // --- PROFILE HANDLERS ---
     const handleProfileChange = (e) => {
@@ -47,7 +54,11 @@ const Dashboard = () => {
     const handleProfileSubmit = async (e) => {
         e.preventDefault();
         try {
-            await api.put('/users/profile', profileData);
+            // Clean up empty date strings so MongoDB doesn't crash
+            const payload = { ...profileData };
+            if (payload.dob === '') payload.dob = null;
+
+            await api.put('/users/profile', payload);
             setProfileMessage('Profile updated successfully!');
             setIsEditingProfile(false);
             setTimeout(() => setProfileMessage(''), 3000);
@@ -113,6 +124,12 @@ const Dashboard = () => {
                         <button onClick={() => setActiveTab('profile')} className={`text-left px-4 py-3 rounded-xl font-medium transition-all ${activeTab === 'profile' ? 'bg-brand-500 text-slate-900 shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
                             👤 My Profile
                         </button>
+                        {/* 👇 Hide Classrooms from Admin 👇 */}
+                        {user.role !== 'admin' && (
+                            <button onClick={() => setActiveTab('classes')} className={`text-left px-4 py-3 rounded-xl font-medium transition-all ${activeTab === 'classes' ? 'bg-brand-500 text-slate-900 shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+                                📚 Classrooms
+                            </button>
+                        )}
                         <button onClick={() => setActiveTab('classes')} className={`text-left px-4 py-3 rounded-xl font-medium transition-all ${activeTab === 'classes' ? 'bg-brand-500 text-slate-900 shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
                             📚 Classrooms
                         </button>

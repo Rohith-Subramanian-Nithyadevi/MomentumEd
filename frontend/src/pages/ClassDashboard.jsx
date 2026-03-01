@@ -34,7 +34,7 @@ const ClassDashboard = () => {
         if (window.confirm('Are you sure you want to delete this entire class? This cannot be undone.')) {
             try {
                 await api.delete(`/classes/${id}`);
-                navigate('/classes');
+                navigate('/dashboard'); // 👈 Changed from /classes to /dashboard
             } catch (err) {
                 alert('Failed to delete class');
             }
@@ -75,8 +75,8 @@ const ClassDashboard = () => {
             {/* --- TOP BAR --- */}
             <nav className="bg-white/70 backdrop-blur-md border-b border-brand-200 sticky top-0 z-10 px-6 py-4">
                 <div className="max-w-6xl mx-auto flex justify-between items-center">
-                    <Link to="/classes" className="text-brand-500 font-bold flex items-center gap-2 hover:text-slate-900 transition-colors">
-                        <span className="text-xl">⬅</span> Back to All Classes
+                    <Link to="/dashboard" className="text-brand-500 font-bold flex items-center gap-2 hover:text-slate-900 transition-colors">
+                        <span className="text-xl">⬅</span> Back to Dashboard
                     </Link>
                     <div className="text-slate-400 text-sm font-medium">Classroom ID: {id.slice(-6)}</div>
                 </div>
