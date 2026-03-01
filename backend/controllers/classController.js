@@ -89,3 +89,22 @@ exports.getMyClasses = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+// @desc    Get single class details by ID
+// @route   GET /api/classes/:id
+exports.getClassById = async (req, res) => {
+    try {
+        const classGroup = await ClassGroup.findById(req.params.id)
+            .populate('advisor', 'name email')
+            .populate('teachers.user', 'name email')
+            .populate('students', 'name email')
+            .populate('materials.uploadedBy', 'name');
+
+        if (!classGroup) {
+            return res.status(404).json({ message: 'Class not found' });
+        }
+
+        res.status(200).json(classGroup);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};

@@ -7,6 +7,7 @@ import Doubts from './pages/Doubts';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminDashboard from './pages/AdminDashboard';
 import Classes from './pages/Classes';
+import ClassDashboard from './pages/ClassDashboard';
 
 function App() {
     return (
@@ -36,6 +37,14 @@ function App() {
                         element={
                             <ProtectedRoute>
                                 <Classes />
+                            </ProtectedRoute>
+                        } 
+                    />
+                    <Route 
+                        path="/class/:id" 
+                        element={
+                            <ProtectedRoute>
+                                <ClassDashboard />
                             </ProtectedRoute>
                         } 
                     />
