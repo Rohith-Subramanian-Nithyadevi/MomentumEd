@@ -10,6 +10,10 @@ const generateGroupCode = () => {
 // @route   POST /api/classes
 exports.createClass = async (req, res) => {
     try {
+        const existingClass = await ClassGroup.findOne({ advisor: req.user._id });
+        if (existingClass) {
+            return res.status(400).json({ message: 'Class Advisors are restricted to managing only one class.' });
+        }
         const { className} = req.body;
 
         // Generate a unique 6-character group code

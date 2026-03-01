@@ -8,13 +8,16 @@ const generateToken = (id) => {
 exports.registerUser = async (req, res) => {
     try {
         const { name, email, password, role } = req.body;
-        const userExists = await User.findOne({ email });
+        
+        // SECURITY: Block public admin registration
+        if (role === 'admin') {
+            return res.status(403).json({ message: 'Admin accounts cannot be registered publicly.' });
+        }
 
+        const userExists = await User.findOne({ email });
         if (userExists) return res.status(400).json({ message: 'User already exists' });
 
-        // Auto-verify students and admins. Teachers and Advisors start as false.
-        const isVerified = (role === 'student' || role === 'admin') ? true : false;
-
+        const isVerified = (role === 'student') ? true : false;
         const user = await User.create({ name, email, password, role, isVerified });
         
         res.status(201).json({
@@ -32,20 +35,29 @@ exports.registerUser = async (req, res) => {
 exports.loginUser = async (req, res) => {
     try {
         const { email, password } = req.body;
+
+        // HARDCODED ADMIN CHECK
+        if (email === 'admin@gmail.com' && password === 'momentumed@admin') {
+            // Find or dynamically create the admin account
+            let adminUser = await User.findOne({ email: 'admin@gmail.com' });
+            if (!adminUser) {
+                adminUser = await User.create({ 
+                    name: 'System Admin', email: 'admin@gmail.com', password: 'momentumed@admin', role: 'admin', isVerified: true 
+                });
+            }
+            return res.json({
+                _id: adminUser._id, name: adminUser.name, email: adminUser.email, role: adminUser.role, token: generateToken(adminUser._id)
+            });
+        }
+
         const user = await User.findOne({ email });
 
         if (user && (await user.matchPassword(password))) {
-            // Check if the user is verified by admin before allowing login
             if (!user.isVerified) {
                 return res.status(403).json({ message: 'Your account is pending Admin verification.' });
             }
-
             res.json({
-                _id: user._id,
-                name: user.name,
-                email: user.email,
-                role: user.role,
-                token: generateToken(user._id)
+                _id: user._id, name: user.name, email: user.email, role: user.role, token: generateToken(user._id)
             });
         } else {
             res.status(401).json({ message: 'Invalid email or password' });
