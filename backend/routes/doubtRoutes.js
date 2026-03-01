@@ -1,5 +1,7 @@
 const express = require('express');
-const { getDoubtsBySubject, createDoubt, answerDoubt, deleteAnswer, deleteDoubt } = require('../controllers/doubtController');
+
+// 👇 Added 'replyToAnswer' to the import list! 👇
+const { getDoubtsBySubject, createDoubt, answerDoubt, replyToAnswer, deleteDoubt, deleteAnswer } = require('../controllers/doubtController');
 const { protect } = require('../middleware/authMiddleware');
 
 const router = express.Router();
