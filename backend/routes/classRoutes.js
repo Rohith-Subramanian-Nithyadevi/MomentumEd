@@ -1,7 +1,7 @@
 const express = require('express');
 
 // 👇 We only need this ONE import line 👇
-const { createClass, joinClass, getMyClasses, getClassById,deleteClass, uploadMaterial} = require('../controllers/classController');
+const { createClass, joinClass, getMyClasses, getClassDetails, uploadMaterial, deleteClass, deleteMaterial } = require('../controllers/classController');
 const { protect, restrictTo } = require('../middleware/authMiddleware');
 
 const router = express.Router();
