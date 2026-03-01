@@ -4,8 +4,7 @@ const dotenv = require('dotenv');
 const cors = require('cors');
 
 const authRoutes = require('./routes/authRoutes');
-// const doubtRoutes = require('./routes/doubtRoutes');
-//Change
+const doubtRoutes = require('./routes/doubtRoutes');
 dotenv.config();
 
 const app = express();
@@ -33,7 +32,7 @@ mongoose.connect(process.env.MONGO_URI).then(() => {
 // 3. ROUTES
 // ==========================================
 app.use('/api/auth', authRoutes);
-// app.use('/api/doubts', doubtRoutes);
+app.use('/api/doubts', doubtRoutes);
 
 // ==========================================
 // 4. GLOBAL ERROR HANDLER (Must come LAST)

@@ -1,5 +1,6 @@
 import { useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import { Link } from 'react-router-dom';
 
 const Dashboard = () => {
     const { user, logout } = useContext(AuthContext);
@@ -15,7 +16,7 @@ const Dashboard = () => {
                     <div>
                         <h3>Student Actions</h3>
                         <ul>
-                            <li>Ask a Doubt</li>
+                            <li><Link to="/doubts">Ask a Doubt</Link></li>
                             <li>View Schedule</li>
                         </ul>
                     </div>
@@ -24,7 +25,7 @@ const Dashboard = () => {
                         <h3>Teacher Actions</h3>
                         <ul>
                             <li>Upload Materials</li>
-                            <li>Answer Doubts</li>
+                            <li><Link to="/doubts">View and Answer Doubts</Link></li>
                         </ul>
                     </div>
                 )}
