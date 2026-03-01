@@ -12,7 +12,8 @@ const classGroupSchema = new mongoose.Schema({
         subjectName: { type: String, required: true } // e.g., "Data Structures", "Java"
     }],
     
-    timetableUrl: { type: String, default: '' },
+    // Remove timetableUrl: { type: String } and add this:
+    timetableData: { type: Object, default: null },
     
     // UPDATED: Materials now belong to a specific teacher's folder
     materials: [{

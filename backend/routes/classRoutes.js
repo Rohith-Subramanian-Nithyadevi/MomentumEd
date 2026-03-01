@@ -10,7 +10,8 @@ const {
     deleteClass, 
     deleteMaterial,
     updateTimetable,
-    getClassStudents
+    getClassStudents,
+    removeUserFromClass
 } = require('../controllers/classController');
 
 const { protect } = require('../middleware/authMiddleware');
@@ -30,5 +31,5 @@ router.get('/:id/students', protect, getClassStudents);
 
 router.post('/:id/materials', protect, uploadMaterial);
 router.delete('/:id/materials/:materialId', protect, deleteMaterial);
-
+router.delete('/:id/remove-user/:userId', protect, removeUserFromClass);
 module.exports = router;

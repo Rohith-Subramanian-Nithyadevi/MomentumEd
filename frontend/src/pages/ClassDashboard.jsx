@@ -14,12 +14,16 @@ const ClassDashboard = () => {
     const [selectedCourse, setSelectedCourse] = useState(null); 
     const [courseTab, setCourseTab] = useState('materials');
 
-    // --- MATERIALS & TIMETABLE STATES ---
+    // --- MATERIALS STATES ---
     const [isUploading, setIsUploading] = useState(false);
     const [matTitle, setMatTitle] = useState('');
     const [matUrl, setMatUrl] = useState('');
-    const [timetableInput, setTimetableInput] = useState('');
+
+    // --- TIMETABLE BUILDER STATES ---
     const [isEditingTimetable, setIsEditingTimetable] = useState(false);
+    const [numPeriods, setNumPeriods] = useState(6);
+    const [scheduleData, setScheduleData] = useState({}); 
+    const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
     // --- ROSTER STATES ---
     const [students, setStudents] = useState([]);
@@ -37,9 +41,7 @@ const ClassDashboard = () => {
             const { data } = await api.get(`/classes/${id}`);
             setClassData(data);
             setLoading(false);
-        } catch (err) {
-            setLoading(false);
-        }
+        } catch (err) { setLoading(false); }
     };
 
     const fetchSubjectDoubts = async (subjectName) => {
@@ -58,69 +60,79 @@ const ClassDashboard = () => {
 
     useEffect(() => {
         fetchClassDetails();
-        // If the user is an advisor, fetch the student roster
-        if (user?.role === 'advisor') {
-            fetchStudents();
-        }
+        if (user?.role === 'advisor') fetchStudents();
     }, [id, user]);
 
     useEffect(() => {
         if (selectedCourse) fetchSubjectDoubts(selectedCourse.subjectName);
     }, [selectedCourse]);
 
-    const toggleDoubt = (doubtId) => {
-        setExpandedDoubts(prev => ({ ...prev, [doubtId]: !prev[doubtId] }));
-    };
+    const toggleDoubt = (doubtId) => setExpandedDoubts(prev => ({ ...prev, [doubtId]: !prev[doubtId] }));
 
     const isAdvisor = user?.role === 'advisor';
     const isCourseTeacher = user?.role === 'teacher' && user._id === selectedCourse?.user?._id;
     const canModerate = isAdvisor || isCourseTeacher;
 
-    // --- ADVISOR HANDLERS ---
-    const handleUpdateTimetable = async (e) => {
-        e.preventDefault();
+    // --- NEW ADVISOR TIMETABLE LOGIC ---
+    const generateGrid = () => {
+        const initial = {};
+        daysOfWeek.forEach(day => { initial[day] = Array(Number(numPeriods)).fill(''); });
+        setScheduleData(initial);
+    };
+
+    const handleCellChange = (day, index, value) => {
+        setScheduleData(prev => {
+            const newDay = [...(prev[day] || [])];
+            newDay[index] = value;
+            return { ...prev, [day]: newDay };
+        });
+    };
+
+    const handleSaveTimetable = async () => {
         try {
-            await api.put(`/classes/${id}/timetable`, { timetableUrl: timetableInput });
+            await api.put(`/classes/${id}/timetable`, { timetableData: scheduleData });
             setIsEditingTimetable(false);
-            setTimetableInput('');
             fetchClassDetails();
-        } catch (err) { alert('Failed to update timetable'); }
+        } catch (err) { alert('Failed to save timetable'); }
+    };
+
+    // --- NEW ADVISOR ROSTER LOGIC ---
+    const handleRemoveUser = async (userId, role) => {
+        if (window.confirm(`Are you sure you want to remove this ${role} from the classroom?`)) {
+            try {
+                await api.delete(`/classes/${id}/remove-user/${userId}`);
+                fetchClassDetails();
+                if (role === 'student') fetchStudents();
+            } catch (err) { alert('Failed to remove user'); }
+        }
     };
 
     const handleDeleteClass = async () => {
         if (window.confirm('Delete this entire class? This cannot be undone.')) {
-            try {
-                await api.delete(`/classes/${id}`);
-                navigate('/dashboard');
-            } catch (err) { alert('Failed to delete class'); }
+            try { await api.delete(`/classes/${id}`); navigate('/dashboard'); } 
+            catch (err) { alert('Failed to delete class'); }
         }
     };
 
-    // --- TEACHER/MODERATOR HANDLERS ---
+    // --- MATERIALS & DOUBTS LOGIC ---
     const handleDeleteMaterial = async (materialId) => {
         if (window.confirm('Delete this material?')) {
-            try {
-                await api.delete(`/classes/${id}/materials/${materialId}`);
-                fetchClassDetails();
-            } catch (err) { alert('Failed to delete material'); }
+            try { await api.delete(`/classes/${id}/materials/${materialId}`); fetchClassDetails(); } 
+            catch (err) { alert('Failed to delete material'); }
         }
     };
 
     const handleDeleteDoubt = async (doubtId) => {
         if (window.confirm('Delete this entire discussion thread?')) {
-            try {
-                await api.delete(`/doubts/${doubtId}`);
-                fetchSubjectDoubts(selectedCourse.subjectName);
-            } catch (err) { alert('Failed to delete doubt.'); }
+            try { await api.delete(`/doubts/${doubtId}`); fetchSubjectDoubts(selectedCourse.subjectName); } 
+            catch (err) { alert('Failed to delete doubt.'); }
         }
     };
 
     const handleDeleteAnswer = async (doubtId, answerId) => {
         if (window.confirm('Delete this answer?')) {
-            try {
-                await api.delete(`/doubts/${doubtId}/answers/${answerId}`);
-                fetchSubjectDoubts(selectedCourse.subjectName);
-            } catch (err) { alert('Failed to delete answer.'); }
+            try { await api.delete(`/doubts/${doubtId}/answers/${answerId}`); fetchSubjectDoubts(selectedCourse.subjectName); } 
+            catch (err) { alert('Failed to delete answer.'); }
         }
     };
 
@@ -128,20 +140,16 @@ const ClassDashboard = () => {
         e.preventDefault();
         try {
             await api.post(`/classes/${id}/materials`, { title: matTitle, fileUrl: matUrl, folderSubject: selectedCourse.subjectName });
-            setMatTitle(''); setMatUrl(''); setIsUploading(false);
-            fetchClassDetails();
+            setMatTitle(''); setMatUrl(''); setIsUploading(false); fetchClassDetails();
         } catch (err) { alert('Failed to upload material'); }
     };
 
     const handleAskDoubt = async (e) => {
-        e.preventDefault();
-        setIsPosting(true);
+        e.preventDefault(); setIsPosting(true);
         try {
             await api.post('/doubts', { classId: id, subjectFolder: selectedCourse.subjectName, ...newDoubt });
-            setNewDoubt({ title: '', description: '', referenceUrl: '' });
-            fetchSubjectDoubts(selectedCourse.subjectName);
-        } catch (err) { alert('Failed to post doubt'); } 
-        finally { setIsPosting(false); }
+            setNewDoubt({ title: '', description: '', referenceUrl: '' }); fetchSubjectDoubts(selectedCourse.subjectName);
+        } catch (err) { alert('Failed to post doubt'); } finally { setIsPosting(false); }
     };
 
     const handleAnswerDoubt = async (e, doubtId) => {
@@ -149,8 +157,7 @@ const ClassDashboard = () => {
         try {
             await api.post(`/doubts/${doubtId}/answers`, { text: answerInputs[doubtId]?.text || '', referenceUrl: answerInputs[doubtId]?.referenceUrl || '' });
             setAnswerInputs({ ...answerInputs, [doubtId]: { text: '', referenceUrl: '' } });
-            setExpandedDoubts(prev => ({ ...prev, [doubtId]: true }));
-            fetchSubjectDoubts(selectedCourse.subjectName);
+            setExpandedDoubts(prev => ({ ...prev, [doubtId]: true })); fetchSubjectDoubts(selectedCourse.subjectName);
         } catch (err) { alert('Failed to post answer'); }
     };
 
@@ -158,8 +165,7 @@ const ClassDashboard = () => {
         e.preventDefault();
         try {
             await api.post(`/doubts/${doubtId}/answers/${answerId}/replies`, { text: replyInputs[answerId] });
-            setReplyInputs({ ...replyInputs, [answerId]: '' });
-            fetchSubjectDoubts(selectedCourse.subjectName);
+            setReplyInputs({ ...replyInputs, [answerId]: '' }); fetchSubjectDoubts(selectedCourse.subjectName);
         } catch (err) { alert('Failed to post reply'); }
     };
 
@@ -209,28 +215,67 @@ const ClassDashboard = () => {
                             </div>
                         </div>
 
-                        {/* --- TIMETABLE WIDGET --- */}
-                        <div className="bg-white rounded-[32px] p-8 border border-brand-200 shadow-sm mb-10">
-                            <div className="flex justify-between items-center mb-6">
+                        {/* --- VISUAL TIMETABLE WIDGET --- */}
+                        <div className="bg-white rounded-[32px] p-8 border border-brand-200 shadow-sm mb-10 overflow-x-auto">
+                            <div className="flex justify-between items-center mb-8">
                                 <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-3"><span className="text-3xl">📅</span> Weekly Timetable</h2>
                                 {isAdvisor && (
-                                    <button onClick={() => setIsEditingTimetable(!isEditingTimetable)} className="px-4 py-2 bg-brand-100 text-brand-600 font-bold rounded-lg text-sm hover:bg-brand-200">
-                                        {isEditingTimetable ? 'Cancel Edit' : 'Update Timetable'}
+                                    <button onClick={() => { setIsEditingTimetable(!isEditingTimetable); if(!isEditingTimetable && !classData.timetableData) generateGrid(); }} className="px-6 py-2 bg-brand-100 text-brand-600 font-bold rounded-xl text-sm hover:bg-brand-500 hover:text-white transition-colors">
+                                        {isEditingTimetable ? 'Cancel Setup' : 'Configure Timetable'}
                                     </button>
                                 )}
                             </div>
 
+                            {/* TIMETABLE BUILDER (Advisor Edit Mode) */}
                             {isEditingTimetable && isAdvisor && (
-                                <form onSubmit={handleUpdateTimetable} className="bg-brand-50 p-6 rounded-2xl mb-6 border border-brand-200 flex flex-col md:flex-row gap-4">
-                                    <input type="url" placeholder="Paste Timetable Link (G-Drive, PDF, Image URL)..." value={timetableInput} onChange={(e) => setTimetableInput(e.target.value)} required className="flex-1 px-4 py-3 bg-white border border-brand-200 rounded-xl text-sm focus:border-brand-500" />
-                                    <button type="submit" className="px-8 py-3 bg-brand-500 text-slate-900 font-bold rounded-xl hover:bg-brand-400">Save Link</button>
-                                </form>
+                                <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200 mb-6">
+                                    <div className="flex items-end gap-4 mb-6">
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">Periods per day</label>
+                                            <input type="number" min="1" max="10" value={numPeriods} onChange={(e) => setNumPeriods(e.target.value)} className="w-32 px-4 py-2 bg-white border border-slate-200 rounded-xl font-bold text-slate-800" />
+                                        </div>
+                                        <button onClick={generateGrid} className="px-6 py-2 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-900 transition-colors">Generate Grid</button>
+                                    </div>
+                                    <p className="text-xs text-brand-500 font-bold italic mb-4">Tip: Type "BREAK" into a slot to automatically style it as a break period.</p>
+                                    
+                                    {Object.keys(scheduleData).length > 0 && (
+                                        <div className="space-y-4">
+                                            {daysOfWeek.map(day => (
+                                                <div key={day} className="flex flex-col md:flex-row gap-2 md:items-center">
+                                                    <span className="w-24 font-black text-slate-700">{day}</span>
+                                                    <div className="flex flex-1 gap-2 overflow-x-auto pb-2 md:pb-0">
+                                                        {scheduleData[day]?.map((period, idx) => (
+                                                            <input key={idx} type="text" placeholder={`P${idx + 1}`} value={period} onChange={(e) => handleCellChange(day, idx, e.target.value)} className="w-32 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-center focus:border-brand-500 focus:outline-none" />
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            <button onClick={handleSaveTimetable} className="mt-6 px-8 py-3 bg-brand-500 text-slate-900 font-black rounded-xl hover:bg-brand-400 w-full md:w-auto shadow-md">Publish Timetable</button>
+                                        </div>
+                                    )}
+                                </div>
                             )}
 
-                            {classData.timetableUrl ? (
-                                <a href={classData.timetableUrl} target="_blank" rel="noopener noreferrer" className="inline-block px-8 py-4 bg-brand-500 text-slate-900 font-bold rounded-2xl hover:bg-brand-400 transition-all shadow-lg shadow-brand-500/20">View Schedule ➔</a>
-                            ) : (
-                                <p className="text-slate-500 font-medium italic">No timetable uploaded yet.</p>
+                            {/* TIMETABLE VIEWER (For Everyone) */}
+                            {!isEditingTimetable && classData.timetableData && (
+                                <div className="min-w-max border border-brand-100 rounded-2xl overflow-hidden">
+                                    {daysOfWeek.map((day, dIdx) => (
+                                        <div key={day} className={`flex border-b border-brand-100 ${dIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}>
+                                            <div className="w-32 px-6 py-4 font-black text-slate-800 border-r border-brand-100 flex items-center">{day}</div>
+                                            <div className="flex flex-1">
+                                                {classData.timetableData[day]?.map((subject, idx) => (
+                                                    <div key={idx} className={`flex-1 min-w-[120px] px-4 py-4 text-center border-r border-brand-100 last:border-r-0 flex items-center justify-center ${subject.toUpperCase() === 'BREAK' ? 'bg-brand-100 text-brand-600 font-black tracking-widest text-[10px]' : 'text-slate-600 font-bold text-sm'}`}>
+                                                        {subject || '-'}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {!isEditingTimetable && !classData.timetableData && (
+                                <p className="text-slate-500 font-medium italic text-center py-6 bg-slate-50 rounded-2xl border border-dashed border-slate-200">No timetable configured yet.</p>
                             )}
                         </div>
 
@@ -256,24 +301,30 @@ const ClassDashboard = () => {
                             )}
                         </section>
 
-                        {/* --- ADVISOR: CLASS ROSTER --- */}
+                        {/* --- ADVISOR: CLASS ROSTER WITH REMOVE BUTTONS --- */}
                         {isAdvisor && (
                             <section className="bg-white rounded-[32px] p-8 border border-brand-200 shadow-sm mb-10">
-                                <h2 className="text-2xl font-bold text-slate-800 mb-8 flex items-center gap-3"><span className="text-3xl">👥</span> Class Roster</h2>
+                                <h2 className="text-2xl font-bold text-slate-800 mb-8 flex items-center gap-3"><span className="text-3xl">👥</span> Class Roster & Moderation</h2>
                                 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                                     {/* Teachers List */}
                                     <div>
-                                        <h3 className="text-sm font-black text-brand-500 uppercase tracking-widest mb-4 border-b border-brand-100 pb-2">Faculty & Instructors</h3>
+                                        <h3 className="text-sm font-black text-brand-500 uppercase tracking-widest mb-4 border-b border-brand-100 pb-2 flex justify-between">
+                                            <span>Faculty & Instructors</span>
+                                            <span className="text-slate-400">{classData.teachers.length}</span>
+                                        </h3>
                                         {classData.teachers.length === 0 ? <p className="text-slate-400 italic text-sm">No teachers enrolled.</p> : (
                                             <ul className="space-y-3">
                                                 {classData.teachers.map((t, i) => (
-                                                    <li key={i} className="flex items-center gap-3 bg-brand-50 p-3 rounded-xl border border-brand-100">
-                                                        <div className="w-8 h-8 bg-brand-200 rounded-full flex items-center justify-center text-brand-600 font-bold text-xs">{t.user?.name?.charAt(0)}</div>
-                                                        <div>
-                                                            <p className="text-sm font-bold text-slate-800 leading-none">{t.user?.name}</p>
-                                                            <p className="text-[10px] text-slate-500">{t.subjectName}</p>
+                                                    <li key={i} className="flex justify-between items-center bg-brand-50 p-3 rounded-xl border border-brand-100 group">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 bg-brand-200 rounded-full flex items-center justify-center text-brand-600 font-bold text-xs">{t.user?.name?.charAt(0)}</div>
+                                                            <div>
+                                                                <p className="text-sm font-bold text-slate-800 leading-none">{t.user?.name}</p>
+                                                                <p className="text-[10px] text-slate-500">{t.subjectName}</p>
+                                                            </div>
                                                         </div>
+                                                        <button onClick={() => handleRemoveUser(t.user._id, 'teacher')} className="px-3 py-1 bg-white text-red-500 text-xs font-bold rounded-lg border border-red-100 opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white transition-all">Remove</button>
                                                     </li>
                                                 ))}
                                             </ul>
@@ -282,19 +333,22 @@ const ClassDashboard = () => {
 
                                     {/* Students List */}
                                     <div>
-                                        <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4 border-b border-brand-100 pb-2">Registered Students ({students.length})</h3>
+                                        <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4 border-b border-brand-100 pb-2 flex justify-between">
+                                            <span>Registered Students</span>
+                                            <span className="text-slate-400">{students.length}</span>
+                                        </h3>
                                         {students.length === 0 ? <p className="text-slate-400 italic text-sm">No students enrolled yet.</p> : (
                                             <ul className="space-y-3 max-h-80 overflow-y-auto pr-2">
                                                 {students.map((s) => (
-                                                    <li key={s._id} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-200">
+                                                    <li key={s._id} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-200 group">
                                                         <div className="flex items-center gap-3">
                                                             <div className="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center text-slate-600 font-bold text-xs">{s.name.charAt(0)}</div>
                                                             <div>
                                                                 <p className="text-sm font-bold text-slate-800 leading-none">{s.name}</p>
-                                                                <p className="text-[10px] text-slate-500">{s.email}</p>
+                                                                <p className="text-[10px] text-slate-500">{s.rollNo || s.email}</p>
                                                             </div>
                                                         </div>
-                                                        <span className="text-[10px] font-bold text-slate-400 uppercase bg-slate-200 px-2 py-1 rounded-md">{s.rollNo || 'No ID'}</span>
+                                                        <button onClick={() => handleRemoveUser(s._id, 'student')} className="px-3 py-1 bg-white text-red-500 text-xs font-bold rounded-lg border border-red-100 opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white transition-all">Remove</button>
                                                     </li>
                                                 ))}
                                             </ul>
@@ -311,6 +365,7 @@ const ClassDashboard = () => {
                 {/* ========================================= */}
                 {selectedCourse && (
                     <div className="animate-fade-in-up">
+                        {/* Course Header */}
                         <div className="bg-slate-900 rounded-[40px] p-8 md:p-12 text-white shadow-2xl mb-8 relative overflow-hidden">
                             <div className="relative z-10">
                                 <span className="px-3 py-1 bg-brand-500 text-slate-900 text-[10px] font-black uppercase rounded-lg tracking-widest mb-4 inline-block">Active Workspace</span>
@@ -319,11 +374,13 @@ const ClassDashboard = () => {
                             </div>
                         </div>
 
+                        {/* Tabs Navigation */}
                         <div className="flex gap-4 mb-8 px-2">
                             <button onClick={() => setCourseTab('materials')} className={`px-6 py-3 rounded-2xl font-bold transition-all ${courseTab === 'materials' ? 'bg-brand-500 text-slate-900 shadow-lg' : 'bg-white text-slate-500 hover:bg-brand-200'}`}>📚 Study Materials</button>
                             <button onClick={() => setCourseTab('doubts')} className={`px-6 py-3 rounded-2xl font-bold transition-all ${courseTab === 'doubts' ? 'bg-brand-500 text-slate-900 shadow-lg' : 'bg-white text-slate-500 hover:bg-brand-200'}`}>💬 Discussion Forum</button>
                         </div>
 
+                        {/* TAB 1: MATERIALS */}
                         {courseTab === 'materials' && (
                             <div className="bg-white rounded-[32px] p-8 border border-brand-200 shadow-sm">
                                 <div className="flex justify-between items-center mb-8 pb-4 border-b border-brand-100">
@@ -368,6 +425,7 @@ const ClassDashboard = () => {
                             </div>
                         )}
 
+                        {/* TAB 2: DOUBTS FORUM */}
                         {courseTab === 'doubts' && (
                             <div className="space-y-8">
                                 {user?.role === 'student' && (

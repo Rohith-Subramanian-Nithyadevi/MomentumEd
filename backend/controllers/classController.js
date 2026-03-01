@@ -167,21 +167,21 @@ exports.deleteMaterial = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
-// @desc    Update class timetable (Advisor only)
+// @desc    Update dynamic class timetable (Advisor only)
 // @route   PUT /api/classes/:id/timetable
 exports.updateTimetable = async (req, res) => {
     try {
         const classGroup = await ClassGroup.findById(req.params.id);
         if (!classGroup) return res.status(404).json({ message: 'Class not found' });
         
-        // Security check: Only the advisor can update it
         if (classGroup.advisor._id.toString() !== req.user._id.toString()) {
             return res.status(403).json({ message: 'Not authorized to update timetable' });
         }
 
-        classGroup.timetableUrl = req.body.timetableUrl;
+        // Save the structured grid data
+        classGroup.timetableData = req.body.timetableData;
         await classGroup.save();
-        res.json({ message: 'Timetable updated successfully', timetableUrl: classGroup.timetableUrl });
+        res.json({ message: 'Timetable saved successfully', timetableData: classGroup.timetableData });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -198,6 +198,30 @@ exports.getClassStudents = async (req, res) => {
         }).select('name email rollNo'); // Only send back safe data
         
         res.json(students);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+// @desc    Remove a student or teacher from the class
+// @route   DELETE /api/classes/:id/remove-user/:userId
+exports.removeUserFromClass = async (req, res) => {
+    try {
+        const { id, userId } = req.params;
+        const classGroup = await ClassGroup.findById(id);
+        
+        if (classGroup.advisor._id.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: 'Only the Advisor can remove users.' });
+        }
+
+        // 1. Remove the class from the user's enrolledClasses
+        const User = require('../models/User');
+        await User.findByIdAndUpdate(userId, { $pull: { enrolledClasses: id } });
+
+        // 2. If it's a teacher, also remove them from the class's teacher array
+        classGroup.teachers = classGroup.teachers.filter(t => t.user.toString() !== userId);
+        await classGroup.save();
+
+        res.json({ message: 'User successfully removed from the class.' });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
