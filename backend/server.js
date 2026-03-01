@@ -38,6 +38,7 @@ app.use('/api/doubts', doubtRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/classes', classRoutes);
 app.use('/api/users', require('./routes/userRoutes'));
+app.use('/api/assignments', require('./routes/assignmentRoutes'));
 
 // ==========================================
 // 4. GLOBAL ERROR HANDLER (Must come LAST)
