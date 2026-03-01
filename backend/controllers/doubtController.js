@@ -77,7 +77,8 @@ exports.replyToAnswer = async (req, res) => {
 // @route   DELETE /api/doubts/:id
 exports.deleteDoubt = async (req, res) => {
     try {
-        await Doubt.findByIdAndDelete(req.params.id);
+        const deletedDoubt = await Doubt.findByIdAndDelete(req.params.id);
+        if (!deletedDoubt) return res.status(404).json({ message: 'Doubt not found' });
         res.json({ message: 'Doubt deleted successfully' });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -88,9 +89,14 @@ exports.deleteDoubt = async (req, res) => {
 // @route   DELETE /api/doubts/:doubtId/answers/:answerId
 exports.deleteAnswer = async (req, res) => {
     try {
-        const doubt = await Doubt.findById(req.params.doubtId);
-        doubt.answers.pull(req.params.answerId);
-        await doubt.save();
+        // Using $pull is the safest way to remove an item from a MongoDB array
+        const updatedDoubt = await Doubt.findByIdAndUpdate(
+            req.params.doubtId,
+            { $pull: { answers: { _id: req.params.answerId } } },
+            { new: true }
+        );
+        if (!updatedDoubt) return res.status(404).json({ message: 'Doubt not found' });
+        
         res.json({ message: 'Answer deleted successfully' });
     } catch (error) {
         res.status(500).json({ message: error.message });

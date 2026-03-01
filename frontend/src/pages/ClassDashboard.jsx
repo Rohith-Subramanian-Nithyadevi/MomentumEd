@@ -21,8 +21,11 @@ const ClassDashboard = () => {
     const [doubts, setDoubts] = useState([]);
     const [newDoubt, setNewDoubt] = useState({ title: '', description: '', referenceUrl: '' });
     const [answerInputs, setAnswerInputs] = useState({});
-    const [replyInputs, setReplyInputs] = useState({}); // For nested replies
+    const [replyInputs, setReplyInputs] = useState({}); 
     const [isPosting, setIsPosting] = useState(false);
+
+    // 🔥 NEW STATE: Tracks which doubts are currently expanded
+    const [expandedDoubts, setExpandedDoubts] = useState({});
 
     const fetchClassDetails = async () => {
         try {
@@ -51,15 +54,15 @@ const ClassDashboard = () => {
         if (selectedCourse) fetchSubjectDoubts(selectedCourse.subjectName);
     }, [selectedCourse]);
 
-    // --- PERMISSION CHECKS ---
-    // Is the user the Advisor of this class?
+    // Toggle expand/collapse for a specific doubt
+    const toggleDoubt = (doubtId) => {
+        setExpandedDoubts(prev => ({ ...prev, [doubtId]: !prev[doubtId] }));
+    };
+
     const isAdvisor = user.role === 'advisor';
-    // Is the user the specific Teacher for this selected subject?
     const isCourseTeacher = user.role === 'teacher' && user._id === selectedCourse?.user?._id;
-    // Can this user moderate (delete) content in this subject?
     const canModerate = isAdvisor || isCourseTeacher;
 
-    // --- DELETE HANDLERS ---
     const handleDeleteMaterial = async (materialId) => {
         if (window.confirm('Delete this material?')) {
             try {
@@ -74,7 +77,7 @@ const ClassDashboard = () => {
             try {
                 await api.delete(`/doubts/${doubtId}`);
                 fetchSubjectDoubts(selectedCourse.subjectName);
-            } catch (err) { alert('Failed to delete doubt'); }
+            } catch (err) { alert('Failed to delete doubt. Ensure your backend is updated!'); }
         }
     };
 
@@ -83,11 +86,10 @@ const ClassDashboard = () => {
             try {
                 await api.delete(`/doubts/${doubtId}/answers/${answerId}`);
                 fetchSubjectDoubts(selectedCourse.subjectName);
-            } catch (err) { alert('Failed to delete answer'); }
+            } catch (err) { alert('Failed to delete answer. Ensure your backend is updated!'); }
         }
     };
 
-    // --- SUBMIT HANDLERS ---
     const handleUploadMaterial = async (e) => {
         e.preventDefault();
         try {
@@ -115,6 +117,9 @@ const ClassDashboard = () => {
                 text: answerInputs[doubtId]?.text || '', referenceUrl: answerInputs[doubtId]?.referenceUrl || ''
             });
             setAnswerInputs({ ...answerInputs, [doubtId]: { text: '', referenceUrl: '' } });
+            
+            // Automatically expand the doubt to show the new answer
+            setExpandedDoubts(prev => ({ ...prev, [doubtId]: true }));
             fetchSubjectDoubts(selectedCourse.subjectName);
         } catch (err) { alert('Failed to post answer'); }
     };
@@ -205,9 +210,7 @@ const ClassDashboard = () => {
                             <button onClick={() => setCourseTab('doubts')} className={`px-6 py-3 rounded-2xl font-bold transition-all ${courseTab === 'doubts' ? 'bg-brand-500 text-slate-900 shadow-lg' : 'bg-white text-slate-500 hover:bg-brand-200'}`}>💬 Discussion Forum</button>
                         </div>
 
-                        {/* ========================================= */}
-                        {/* TAB 1: MATERIALS WITH MODERATION          */}
-                        {/* ========================================= */}
+                        {/* TAB 1: MATERIALS */}
                         {courseTab === 'materials' && (
                             <div className="bg-white rounded-[32px] p-8 border border-brand-200 shadow-sm">
                                 <div className="flex justify-between items-center mb-8 pb-4 border-b border-brand-100">
@@ -240,7 +243,6 @@ const ClassDashboard = () => {
                                                     </div>
                                                     <div className="flex items-center gap-2 shrink-0 ml-4">
                                                         <a href={mat.fileUrl} target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-white text-brand-600 text-xs font-black uppercase rounded-lg border border-brand-200 hover:bg-brand-500 hover:text-white transition-all">Open</a>
-                                                        {/* MODERATION: Delete Material */}
                                                         {canModerate && (
                                                             <button onClick={() => handleDeleteMaterial(mat._id)} className="w-8 h-8 flex items-center justify-center bg-red-100 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors">🗑️</button>
                                                         )}
@@ -253,9 +255,7 @@ const ClassDashboard = () => {
                             </div>
                         )}
 
-                        {/* ========================================= */}
-                        {/* TAB 2: DOUBTS & NESTED REPLIES            */}
-                        {/* ========================================= */}
+                        {/* TAB 2: DOUBTS FORUM */}
                         {courseTab === 'doubts' && (
                             <div className="space-y-8">
                                 {user.role === 'student' && (
@@ -270,94 +270,109 @@ const ClassDashboard = () => {
                                     </div>
                                 )}
 
-                                {doubts.map((doubt) => {
-                                    // Identify if the current user asked this specific question
-                                    const isAuthor = doubt.postedBy?._id === user._id;
+                                <h3 className="text-xl font-bold text-slate-800 px-2 flex items-center gap-2">
+                                    Discussion Thread <span className="bg-brand-500 text-xs px-2 py-0.5 rounded-full">{doubts.length}</span>
+                                </h3>
 
-                                    return (
-                                        <div key={doubt._id} className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-brand-200 relative">
-                                            
-                                            {/* MODERATION: Delete Entire Doubt */}
-                                            {(canModerate || isAuthor) && (
-                                                <button onClick={() => handleDeleteDoubt(doubt._id)} className="absolute top-6 right-6 w-8 h-8 flex items-center justify-center bg-red-50 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors z-10" title="Delete Discussion">🗑️</button>
-                                            )}
+                                {doubts.length === 0 ? (
+                                    <div className="bg-white/50 border-2 border-dashed border-brand-300 rounded-[32px] p-12 text-center">
+                                        <p className="text-slate-400 font-medium">No questions asked in this subject yet.</p>
+                                    </div>
+                                ) : (
+                                    doubts.map((doubt) => {
+                                        const isAuthor = doubt.postedBy?._id === user._id;
 
-                                            <div className="p-8">
-                                                <div className="flex justify-between items-start mb-4 pr-10">
-                                                    <h4 className="text-xl font-bold text-slate-800 leading-tight">{doubt.title}</h4>
-                                                </div>
-                                                <p className="text-slate-600 mb-4">{doubt.description}</p>
+                                        return (
+                                            <div key={doubt._id} className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-brand-200 relative">
                                                 
-                                                {doubt.referenceUrl && (
-                                                    <a href={doubt.referenceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm text-brand-600 font-bold mb-6 hover:text-slate-900">
-                                                        <span>🔗</span> View Attached Reference
-                                                    </a>
+                                                {(canModerate || isAuthor) && (
+                                                    <button onClick={() => handleDeleteDoubt(doubt._id)} className="absolute top-6 right-6 w-8 h-8 flex items-center justify-center bg-red-50 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors z-10" title="Delete Discussion">🗑️</button>
                                                 )}
 
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 bg-brand-300 rounded-full flex items-center justify-center font-bold text-slate-700 text-xs">{doubt.postedBy?.name?.charAt(0)}</div>
-                                                    <div>
-                                                        <p className="text-xs font-bold text-slate-800 leading-none">{doubt.postedBy?.name}</p>
-                                                        <p className="text-[10px] text-slate-400 capitalize">{doubt.postedBy?.role}</p>
+                                                <div className="p-8">
+                                                    <div className="flex justify-between items-start mb-4 pr-10">
+                                                        <h4 className="text-xl font-bold text-slate-800 leading-tight">{doubt.title}</h4>
                                                     </div>
-                                                </div>
-
-                                                {/* ANSWERS SECTION */}
-                                                <div className="mt-8 pt-6 border-t border-brand-100">
-                                                    <p className="text-sm font-bold text-slate-800 mb-4">Solutions ({doubt.answers.length})</p>
+                                                    <p className="text-slate-600 mb-4">{doubt.description}</p>
                                                     
-                                                    <div className="space-y-6">
-                                                        {doubt.answers.map((ans) => (
-                                                            <div key={ans._id} className="bg-brand-50 p-5 rounded-2xl relative border border-brand-100 group">
-                                                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-brand-500 rounded-l-2xl"></div>
-                                                                
-                                                                {/* MODERATION: Delete specific Answer */}
-                                                                {(canModerate || ans.answeredBy?._id === user._id) && (
-                                                                    <button onClick={() => handleDeleteAnswer(doubt._id, ans._id)} className="absolute top-4 right-4 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">🗑️</button>
-                                                                )}
+                                                    {doubt.referenceUrl && (
+                                                        <a href={doubt.referenceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm text-brand-600 font-bold mb-6 hover:text-slate-900">
+                                                            <span>🔗</span> View Attached Reference
+                                                        </a>
+                                                    )}
 
-                                                                <p className="text-slate-700 text-sm mb-3 pr-6">{ans.text}</p>
-                                                                {ans.referenceUrl && (
-                                                                    <a href={ans.referenceUrl} target="_blank" rel="noopener noreferrer" className="block text-xs text-brand-600 font-bold mb-3">🔗 Solution Reference</a>
-                                                                )}
-                                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">— {ans.answeredBy?.name}</p>
-
-                                                                {/* NESTED REPLIES (Student Authors can use this to reply to a solution) */}
-                                                                {ans.replies && ans.replies.length > 0 && (
-                                                                    <div className="ml-4 pl-4 border-l-2 border-brand-200 space-y-3 mb-4">
-                                                                        {ans.replies.map((reply, rIdx) => (
-                                                                            <div key={rIdx} className="text-xs text-slate-600 bg-white p-3 rounded-xl shadow-sm border border-brand-100">
-                                                                                <p className="mb-1">{reply.text}</p>
-                                                                                <p className="text-[9px] font-bold text-slate-400 uppercase">— {reply.repliedBy?.name}</p>
-                                                                            </div>
-                                                                        ))}
-                                                                    </div>
-                                                                )}
-
-                                                                {/* Reply Box (Available to everyone, including the Author) */}
-                                                                <form onSubmit={(e) => handleReplySubmit(e, doubt._id, ans._id)} className="flex gap-2 ml-4">
-                                                                    <input type="text" placeholder="Reply to this solution..." value={replyInputs[ans._id] || ''} onChange={(e) => setReplyInputs({...replyInputs, [ans._id]: e.target.value})} required className="flex-1 px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:border-brand-500" />
-                                                                    <button type="submit" className="px-4 py-2 bg-brand-100 text-brand-600 font-bold text-xs rounded-lg hover:bg-brand-500 hover:text-white">Reply</button>
-                                                                </form>
-                                                            </div>
-                                                        ))}
-
-                                                        {/* MAIN ANSWER BOX (Hidden from the student who asked the question) */}
-                                                        {!isAuthor && (
-                                                            <form onSubmit={(e) => handleAnswerDoubt(e, doubt._id)} className="flex flex-col md:flex-row gap-3 mt-6 border-t border-brand-100 pt-6">
-                                                                <div className="flex-1 flex flex-col gap-2">
-                                                                    <input type="text" placeholder="Provide a new solution..." value={answerInputs[doubt._id]?.text || ''} onChange={(e) => setAnswerInputs(prev => ({...prev, [doubt._id]: {...prev[doubt._id], text: e.target.value}}))} required className="px-5 py-3 bg-white border border-slate-200 rounded-xl text-sm" />
-                                                                    <input type="url" placeholder="Optional: Solution Image Link" value={answerInputs[doubt._id]?.referenceUrl || ''} onChange={(e) => setAnswerInputs(prev => ({...prev, [doubt._id]: {...prev[doubt._id], referenceUrl: e.target.value}}))} className="px-5 py-3 bg-white border border-slate-200 rounded-xl text-sm" />
-                                                                </div>
-                                                                <button type="submit" className="px-6 py-3 bg-slate-900 text-white text-sm font-bold rounded-xl hover:bg-slate-800 self-start md:self-stretch">Submit Solution</button>
-                                                            </form>
-                                                        )}
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 bg-brand-300 rounded-full flex items-center justify-center font-bold text-slate-700 text-xs">{doubt.postedBy?.name?.charAt(0)}</div>
+                                                        <div>
+                                                            <p className="text-xs font-bold text-slate-800 leading-none">{doubt.postedBy?.name}</p>
+                                                            <p className="text-[10px] text-slate-400 capitalize">{doubt.postedBy?.role}</p>
+                                                        </div>
                                                     </div>
+
+                                                    {/* 🔥 COLLAPSIBLE BUTTON HERE */}
+                                                    <button 
+                                                        onClick={() => toggleDoubt(doubt._id)}
+                                                        className="mt-6 px-4 py-2 bg-brand-100 text-brand-600 font-bold text-xs rounded-xl hover:bg-brand-500 hover:text-white transition-all"
+                                                    >
+                                                        {expandedDoubts[doubt._id] ? 'Hide Solutions' : `View Solutions (${doubt.answers.length})`}
+                                                    </button>
+
+                                                    {/* 🔥 HIDDEN ANSWERS SECTION (Revealed on click) */}
+                                                    {expandedDoubts[doubt._id] && (
+                                                        <div className="mt-6 pt-6 border-t border-brand-100 animate-fade-in-up">
+                                                            <div className="space-y-6">
+                                                                {doubt.answers.map((ans) => (
+                                                                    <div key={ans._id} className="bg-brand-50 p-5 rounded-2xl relative border border-brand-100 group">
+                                                                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-brand-500 rounded-l-2xl"></div>
+                                                                        
+                                                                        {(canModerate || ans.answeredBy?._id === user._id) && (
+                                                                            <button onClick={() => handleDeleteAnswer(doubt._id, ans._id)} className="absolute top-4 right-4 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">🗑️</button>
+                                                                        )}
+
+                                                                        <p className="text-slate-700 text-sm mb-3 pr-6">{ans.text}</p>
+                                                                        {ans.referenceUrl && (
+                                                                            <a href={ans.referenceUrl} target="_blank" rel="noopener noreferrer" className="block text-xs text-brand-600 font-bold mb-3">🔗 Solution Reference</a>
+                                                                        )}
+                                                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">— {ans.answeredBy?.name}</p>
+
+                                                                        {/* NESTED REPLIES */}
+                                                                        {ans.replies && ans.replies.length > 0 && (
+                                                                            <div className="ml-4 pl-4 border-l-2 border-brand-200 space-y-3 mb-4">
+                                                                                {ans.replies.map((reply, rIdx) => (
+                                                                                    <div key={rIdx} className="text-xs text-slate-600 bg-white p-3 rounded-xl shadow-sm border border-brand-100">
+                                                                                        <p className="mb-1">{reply.text}</p>
+                                                                                        <p className="text-[9px] font-bold text-slate-400 uppercase">— {reply.repliedBy?.name}</p>
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                        )}
+
+                                                                        {/* Reply Box */}
+                                                                        <form onSubmit={(e) => handleReplySubmit(e, doubt._id, ans._id)} className="flex gap-2 ml-4">
+                                                                            <input type="text" placeholder="Reply to this solution..." value={replyInputs[ans._id] || ''} onChange={(e) => setReplyInputs({...replyInputs, [ans._id]: e.target.value})} required className="flex-1 px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:border-brand-500" />
+                                                                            <button type="submit" className="px-4 py-2 bg-brand-100 text-brand-600 font-bold text-xs rounded-lg hover:bg-brand-500 hover:text-white">Reply</button>
+                                                                        </form>
+                                                                    </div>
+                                                                ))}
+
+                                                                {/* MAIN ANSWER BOX */}
+                                                                {!isAuthor && (
+                                                                    <form onSubmit={(e) => handleAnswerDoubt(e, doubt._id)} className="flex flex-col md:flex-row gap-3 mt-6 border-t border-brand-100 pt-6">
+                                                                        <div className="flex-1 flex flex-col gap-2">
+                                                                            <input type="text" placeholder="Provide a new solution..." value={answerInputs[doubt._id]?.text || ''} onChange={(e) => setAnswerInputs(prev => ({...prev, [doubt._id]: {...prev[doubt._id], text: e.target.value}}))} required className="px-5 py-3 bg-white border border-slate-200 rounded-xl text-sm" />
+                                                                            <input type="url" placeholder="Optional: Solution Image Link" value={answerInputs[doubt._id]?.referenceUrl || ''} onChange={(e) => setAnswerInputs(prev => ({...prev, [doubt._id]: {...prev[doubt._id], referenceUrl: e.target.value}}))} className="px-5 py-3 bg-white border border-slate-200 rounded-xl text-sm" />
+                                                                        </div>
+                                                                        <button type="submit" className="px-6 py-3 bg-slate-900 text-white text-sm font-bold rounded-xl hover:bg-slate-800 self-start md:self-stretch">Submit Solution</button>
+                                                                    </form>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
-                                        </div>
-                                    );
-                                })}
+                                        );
+                                    })
+                                )}
                             </div>
                         )}
                     </div>
