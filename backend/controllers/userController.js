@@ -48,3 +48,42 @@ exports.getUserProfile = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+// @desc    Change Password
+// @route   PUT /api/users/change-password
+exports.changePassword = async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+        const user = await User.findById(req.user._id);
+
+        // Check if current password matches
+        if (!(await user.matchPassword(currentPassword))) {
+            return res.status(401).json({ message: 'Incorrect current password' });
+        }
+
+        user.password = newPassword;
+        await user.save(); // The pre-save hook in User model will hash it automatically
+
+        res.json({ message: 'Password updated successfully' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Delete Account
+// @route   DELETE /api/users/delete-account
+exports.deleteAccount = async (req, res) => {
+    try {
+        const user = await User.findById(req.user._id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        // Security restriction: Don't allow the hardcoded admin to delete itself
+        if (user.email === 'admin@gmail.com') {
+            return res.status(403).json({ message: 'System Admin account cannot be deleted.' });
+        }
+
+        await User.findByIdAndDelete(req.user._id);
+        res.json({ message: 'Account permanently deleted' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};

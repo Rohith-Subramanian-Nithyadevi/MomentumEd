@@ -22,6 +22,12 @@ const classGroupSchema = new mongoose.Schema({
         uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
         folderSubject: { type: String, required: true }, // Links to the teacher's subjectName
         createdAt: { type: Date, default: Date.now }
+    }],
+    announcements: [{
+        title: { type: String, required: true },
+        content: { type: String, required: true },
+        postedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        createdAt: { type: Date, default: Date.now }
     }]
 }, { timestamps: true });
 
