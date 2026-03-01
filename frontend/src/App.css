@@ -1,96 +1,138 @@
-/* Import Poppins Font for that smooth, modern look */
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
 
 :root {
-  /* Your Exact Custom Palette */
-  --color-1: #EDF2FA; /* Lightest */
-  --color-2: #D7E3FC;
-  --color-3: #CCDBFD;
-  --color-4: #C1D3FE;
-  --color-5: #ABC4FF; /* Darkest */
-
-  /* UI Assignments */
-  --bg-main: var(--color-1);
-  --card-bg: rgba(255, 255, 255, 0.7); /* Transparent for glass effect */
-  --primary: var(--color-5);
-  --primary-hover: #98b6fa;
-  --text-main: #1e293b; /* Dark slate for readability on pastels */
-  --text-muted: #64748b;
+  /* YOUR EXACT COLOR PALETTE */
+  --blue-1: #EDF2FA; /* Background */
+  --blue-2: #D7E3FC; /* Inputs/Hover */
+  --blue-3: #CCDBFD; /* Borders */
+  --blue-4: #C1D3FE; /* Accents */
+  --blue-5: #ABC4FF; /* Primary Buttons */
   
-  /* Modern Shapes */
-  --radius-lg: 24px;
-  --radius-md: 14px;
-  --shadow-soft: 0 10px 40px rgba(171, 196, 255, 0.35);
+  /* Text Colors */
+  --text-dark: #1e293b;
+  --text-gray: #64748b;
+  --white: #ffffff;
 }
 
 body {
-  font-family: 'Poppins', sans-serif;
-  background-color: var(--bg-main);
-  color: var(--text-main);
+  font-family: 'Outfit', sans-serif;
+  background-color: var(--blue-1);
+  color: var(--text-dark);
   margin: 0;
   padding: 0;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
 }
 
-/* Base UI Components */
-.glass-card {
-  background: var(--card-bg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.8);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-soft);
+/* Premium Soft UI Card (Like your green samples, but white/blue) */
+.auth-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 20px;
+  background: linear-gradient(135deg, var(--blue-1) 0%, var(--blue-2) 100%);
+}
+
+.auth-card {
+  background-color: var(--white);
+  width: 100%;
+  max-width: 400px;
+  padding: 40px;
+  border-radius: 24px;
+  box-shadow: 0 20px 40px rgba(171, 196, 255, 0.25);
+  border: 1px solid var(--white);
+}
+
+.auth-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin: 0 0 8px 0;
+  text-align: center;
+}
+
+.auth-subtitle {
+  font-size: 15px;
+  color: var(--text-gray);
+  text-align: center;
+  margin: 0 0 30px 0;
+}
+
+/* Modern Inputs */
+.input-group {
+  margin-bottom: 20px;
+}
+
+.input-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-dark);
+  margin-bottom: 8px;
+  margin-left: 4px;
 }
 
 .modern-input {
   width: 100%;
-  padding: 16px 18px;
-  border: 2px solid var(--color-3);
-  border-radius: var(--radius-md);
-  background: #ffffff;
-  font-family: inherit;
-  font-size: 14px;
-  color: var(--text-main);
+  padding: 14px 16px;
+  background-color: var(--blue-1);
+  border: 2px solid transparent;
+  border-radius: 14px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 15px;
+  color: var(--text-dark);
   transition: all 0.3s ease;
   box-sizing: border-box;
 }
 
 .modern-input:focus {
   outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 4px rgba(171, 196, 255, 0.25);
+  background-color: var(--white);
+  border-color: var(--blue-5);
+  box-shadow: 0 0 0 4px rgba(171, 196, 255, 0.3);
 }
 
-.modern-button {
+.modern-input::placeholder {
+  color: #94a3b8;
+}
+
+/* Pill Button */
+.primary-btn {
   width: 100%;
   padding: 16px;
-  background-color: var(--primary);
-  color: #1e293b; /* Dark text contrasts nicely with the pastel blue */
+  background-color: var(--blue-5);
+  color: var(--text-dark);
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: 14px;
+  font-family: 'Outfit', sans-serif;
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
-  font-family: inherit;
+  margin-top: 10px;
 }
 
-.modern-button:hover:not(:disabled) {
-  background-color: var(--primary-hover);
+.primary-btn:hover {
+  background-color: var(--blue-4);
   transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(171, 196, 255, 0.5);
+  box-shadow: 0 8px 20px rgba(171, 196, 255, 0.4);
 }
 
-.modern-button:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
+.auth-footer {
+  text-align: center;
+  margin-top: 25px;
+  font-size: 14px;
+  color: var(--text-gray);
 }
 
-/* Background aesthetic blobs */
-.bg-shape {
-  position: fixed;
-  border-radius: 50%;
-  filter: blur(80px);
-  z-index: -1;
+.auth-link {
+  color: var(--blue-5);
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.3s;
+}
+
+.auth-link:hover {
+  color: var(--text-dark);
 }
