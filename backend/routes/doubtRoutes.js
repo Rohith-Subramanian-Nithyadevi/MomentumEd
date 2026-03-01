@@ -1,5 +1,5 @@
 const express = require('express');
-const { getDoubtsBySubject, createDoubt, answerDoubt } = require('../controllers/doubtController');
+const { getDoubtsBySubject, createDoubt, answerDoubt, deleteAnswer, deleteDoubt } = require('../controllers/doubtController');
 const { protect } = require('../middleware/authMiddleware');
 
 const router = express.Router();
