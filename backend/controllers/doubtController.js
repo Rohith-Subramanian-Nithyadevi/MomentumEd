@@ -8,6 +8,7 @@ exports.getDoubtsBySubject = async (req, res) => {
         const doubts = await Doubt.find({ classGroup: classId, subjectFolder })
             .populate('postedBy', 'name role')
             .populate('answers.answeredBy', 'name role')
+            .populate('answers.replies.repliedBy', 'name role')
             .sort({ createdAt: -1 }); // Newest first
         res.json(doubts);
     } catch (error) {
@@ -51,6 +52,46 @@ exports.answerDoubt = async (req, res) => {
 
         await doubt.save();
         res.status(201).json(doubt);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+// Add this line to your existing getDoubtsBySubject function to load reply names:
+// .populate('answers.replies.repliedBy', 'name role') 
+
+// @desc    Add a reply to a specific answer
+// @route   POST /api/doubts/:doubtId/answers/:answerId/replies
+exports.replyToAnswer = async (req, res) => {
+    try {
+        const doubt = await Doubt.findById(req.params.doubtId);
+        const answer = doubt.answers.id(req.params.answerId);
+        answer.replies.push({ text: req.body.text, repliedBy: req.user._id });
+        await doubt.save();
+        res.status(201).json(doubt);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Delete a doubt
+// @route   DELETE /api/doubts/:id
+exports.deleteDoubt = async (req, res) => {
+    try {
+        await Doubt.findByIdAndDelete(req.params.id);
+        res.json({ message: 'Doubt deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Delete an answer
+// @route   DELETE /api/doubts/:doubtId/answers/:answerId
+exports.deleteAnswer = async (req, res) => {
+    try {
+        const doubt = await Doubt.findById(req.params.doubtId);
+        doubt.answers.pull(req.params.answerId);
+        await doubt.save();
+        res.json({ message: 'Answer deleted successfully' });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

@@ -13,9 +13,15 @@ const doubtSchema = new mongoose.Schema({
     
     answers: [{
         text: { type: String, required: true },
-        referenceUrl: { type: String, default: '' }, // NEW: Link for answer references
+        referenceUrl: { type: String, default: '' },
         answeredBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-        createdAt: { type: Date, default: Date.now }
+        createdAt: { type: Date, default: Date.now },
+        // NEW: Nested replies for discussion on a specific solution
+        replies: [{
+            text: { type: String, required: true },
+            repliedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+            createdAt: { type: Date, default: Date.now }
+        }]
     }]
 }, { timestamps: true });
 

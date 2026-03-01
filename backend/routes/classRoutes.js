@@ -19,5 +19,6 @@ router.post('/', protect, restrictTo('advisor'), createClass);
 router.get('/:id', protect, getClassById);
 router.delete('/:id', protect, restrictTo('advisor', 'admin'), deleteClass);
 router.post('/:id/materials', protect, restrictTo('teacher'), uploadMaterial);
+router.delete('/:id/materials/:materialId', protect, deleteMaterial);
 
 module.exports = router;

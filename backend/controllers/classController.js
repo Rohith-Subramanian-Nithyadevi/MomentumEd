@@ -154,3 +154,15 @@ exports.uploadMaterial = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+// @desc    Delete a material
+// @route   DELETE /api/classes/:id/materials/:materialId
+exports.deleteMaterial = async (req, res) => {
+    try {
+        const classGroup = await ClassGroup.findById(req.params.id);
+        classGroup.materials.pull(req.params.materialId);
+        await classGroup.save();
+        res.json({ message: 'Material deleted' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
