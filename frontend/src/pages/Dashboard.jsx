@@ -7,8 +7,9 @@ const Dashboard = () => {
     const { user, logout } = useContext(AuthContext);
     const navigate = useNavigate();
     
-    // UI State for tabs - NOW DEFAULTS TO 'feed'
+    // UI State for tabs & Mobile Sidebar
     const [activeTab, setActiveTab] = useState('feed');
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false); // NEW: Controls mobile hamburger menu
 
     // --- MODAL STATES ---
     const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -31,7 +32,6 @@ const Dashboard = () => {
     const [classMessage, setClassMessage] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
-    // Fetch Initial Data
     useEffect(() => {
         const fetchDashboardData = async () => {
             try {
@@ -53,6 +53,12 @@ const Dashboard = () => {
         };
         if (user) fetchDashboardData();
     }, [user]);
+
+    // Helper to switch tabs and auto-close mobile sidebar
+    const handleTabSwitch = (tab) => {
+        setActiveTab(tab);
+        setIsSidebarOpen(false);
+    };
 
     // --- PROFILE & SECURITY HANDLERS ---
     const handleProfileChange = (e) => setProfileData({ ...profileData, [e.target.name]: e.target.value });
@@ -78,10 +84,7 @@ const Dashboard = () => {
             return setPasswordMessage('New passwords do not match!');
         }
         try {
-            await api.put('/users/change-password', { 
-                currentPassword: passwordData.currentPassword, 
-                newPassword: passwordData.newPassword 
-            });
+            await api.put('/users/change-password', { currentPassword: passwordData.currentPassword, newPassword: passwordData.newPassword });
             setPasswordMessage('Password changed successfully!');
             setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
             setTimeout(() => setPasswordMessage(''), 3000);
@@ -92,11 +95,10 @@ const Dashboard = () => {
         setIsDeleting(true);
         try {
             await api.delete('/users/delete-account');
-            logout(); // Log them out immediately after deletion
+            logout(); 
         } catch (err) {
             alert(err.response?.data?.message || 'Failed to delete account');
-            setIsDeleting(false);
-            setShowDeleteModal(false);
+            setIsDeleting(false); setShowDeleteModal(false);
         }
     };
 
@@ -119,9 +121,7 @@ const Dashboard = () => {
     const handleJoinClass = async (e) => {
         e.preventDefault(); setIsLoading(true);
         try {
-            const { data } = await api.post('/classes/join', { 
-                groupCode: joinCode, teacherSubject: user?.role === 'teacher' ? teacherSubject : undefined 
-            });
+            const { data } = await api.post('/classes/join', { groupCode: joinCode, teacherSubject: user?.role === 'teacher' ? teacherSubject : undefined });
             setJoinCode(''); setTeacherSubject(''); setClassMessage(data.message);
             fetchMyClasses(); setTimeout(() => setClassMessage(''), 3000);
         } catch (err) { setClassMessage(err.response?.data?.message || 'Failed to join class'); } 
@@ -129,12 +129,12 @@ const Dashboard = () => {
     };
 
     return (
-        <div className="min-h-screen bg-brand-100 font-sans flex flex-col md:flex-row relative">
+        // Changed to h-screen and overflow-hidden to prevent body scrolling when sidebar is open
+        <div className="h-screen bg-brand-100 font-sans flex flex-col md:flex-row overflow-hidden relative">
             
-            {/* --- CUSTOM MODALS --- */}
-            {/* Logout Modal */}
+            {/* --- CUSTOM MODALS (Logout & Delete) --- */}
             {showLogoutModal && (
-                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in-up">
+                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-fade-in-up">
                     <div className="bg-white rounded-[32px] p-8 max-w-sm w-full shadow-2xl border border-brand-200 text-center">
                         <div className="w-16 h-16 bg-brand-100 rounded-full flex items-center justify-center text-3xl mx-auto mb-4">👋</div>
                         <h3 className="text-2xl font-bold text-slate-800 mb-2">Ready to leave?</h3>
@@ -147,9 +147,8 @@ const Dashboard = () => {
                 </div>
             )}
 
-            {/* Delete Account Modal */}
             {showDeleteModal && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in-up">
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[60] flex items-center justify-center p-4 animate-fade-in-up">
                     <div className="bg-white rounded-[32px] p-8 max-w-md w-full shadow-2xl border border-red-200 text-center">
                         <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center text-3xl mx-auto mb-4">⚠️</div>
                         <h3 className="text-2xl font-bold text-red-600 mb-2">Delete Account?</h3>
@@ -164,94 +163,121 @@ const Dashboard = () => {
                 </div>
             )}
 
+            {/* --- MOBILE HEADER (Visible only on small screens) --- */}
+            <div className="md:hidden bg-slate-900 text-white px-6 py-4 flex justify-between items-center z-30 shadow-md shrink-0">
+                <h2 className="text-xl font-black tracking-tight flex items-center gap-2">
+                    <div className="w-6 h-6 bg-brand-500 rounded flex items-center justify-center text-slate-900 text-xs">M</div>
+                    MomentumEd
+                </h2>
+                <button 
+                    onClick={() => setIsSidebarOpen(true)} 
+                    className="p-2 bg-slate-800 rounded-lg text-brand-400 hover:text-white transition-colors focus:outline-none"
+                >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                </button>
+            </div>
 
-            {/* --- SIDEBAR NAVIGATION --- */}
-            <aside className="w-full md:w-64 bg-slate-900 text-white flex flex-col justify-between shadow-2xl z-20 sticky top-0 md:h-screen">
+            {/* --- MOBILE SIDEBAR BACKDROP OVERLAY --- */}
+            {isSidebarOpen && (
+                <div 
+                    className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 md:hidden" 
+                    onClick={() => setIsSidebarOpen(false)} 
+                />
+            )}
+
+            {/* --- SIDEBAR NAVIGATION (Sliding off-canvas on mobile, static on desktop) --- */}
+            <aside className={`fixed md:static inset-y-0 left-0 w-72 md:w-64 bg-slate-900 text-white flex flex-col justify-between shadow-2xl z-50 transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
                 <div className="p-6">
-                    <h2 className="text-2xl font-black tracking-tight mb-8 text-white flex items-center gap-2">
-                        <div className="w-8 h-8 bg-brand-500 rounded-lg flex items-center justify-center text-slate-900">M</div>
-                        MomentumEd
-                    </h2>
+                    <div className="flex justify-between items-center mb-8">
+                        <h2 className="text-2xl font-black tracking-tight flex items-center gap-2">
+                            <div className="w-8 h-8 bg-brand-500 rounded-lg flex items-center justify-center text-slate-900">M</div>
+                            <span className="hidden md:block">MomentumEd</span>
+                            <span className="md:hidden">Menu</span>
+                        </h2>
+                        {/* Close button for mobile */}
+                        <button onClick={() => setIsSidebarOpen(false)} className="md:hidden p-2 text-slate-400 hover:text-white">
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </div>
                     
                     <nav className="flex flex-col gap-2">
                         {user?.role !== 'admin' && (
-                            <button onClick={() => setActiveTab('feed')} className={`text-left px-4 py-3 rounded-xl font-medium transition-all ${activeTab === 'feed' ? 'bg-brand-500 text-slate-900 shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-                                🏠 Activity Feed
+                            <button onClick={() => handleTabSwitch('feed')} className={`text-left px-4 py-3 rounded-xl font-medium transition-all flex items-center gap-3 ${activeTab === 'feed' ? 'bg-brand-500 text-slate-900 shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+                                <span className="text-xl">🏠</span> Activity Feed
                             </button>
                         )}
-                        <button onClick={() => setActiveTab('profile')} className={`text-left px-4 py-3 rounded-xl font-medium transition-all ${activeTab === 'profile' ? 'bg-brand-500 text-slate-900 shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-                            👤 My Profile
+                        <button onClick={() => handleTabSwitch('profile')} className={`text-left px-4 py-3 rounded-xl font-medium transition-all flex items-center gap-3 ${activeTab === 'profile' ? 'bg-brand-500 text-slate-900 shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+                            <span className="text-xl">👤</span> My Profile
                         </button>
                         {user?.role !== 'admin' && (
-                            <button onClick={() => setActiveTab('classes')} className={`text-left px-4 py-3 rounded-xl font-medium transition-all ${activeTab === 'classes' ? 'bg-brand-500 text-slate-900 shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-                                📚 Classrooms
+                            <button onClick={() => handleTabSwitch('classes')} className={`text-left px-4 py-3 rounded-xl font-medium transition-all flex items-center gap-3 ${activeTab === 'classes' ? 'bg-brand-500 text-slate-900 shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+                                <span className="text-xl">📚</span> Classrooms
                             </button>
                         )}
                         {user?.role === 'admin' && (
-                            <Link to="/admin" className="text-left px-4 py-3 rounded-xl font-medium text-slate-400 hover:bg-slate-800 hover:text-white transition-all">
-                                🛡️ Admin Panel
+                            <Link to="/admin" className="text-left px-4 py-3 rounded-xl font-medium flex items-center gap-3 text-slate-400 hover:bg-slate-800 hover:text-white transition-all">
+                                <span className="text-xl">🛡️</span> Admin Panel
                             </Link>
                         )}
                     </nav>
                 </div>
 
-                <div className="p-6 border-t border-slate-800">
+                <div className="p-6 border-t border-slate-800 bg-slate-900">
                     <div className="flex items-center gap-3 mb-4">
-                        <div className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center font-bold text-brand-400 uppercase">
+                        <div className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center font-bold text-brand-400 uppercase shrink-0">
                             {user?.name?.charAt(0) || '?'}
                         </div>
-                        <div>
-                            <p className="text-sm font-bold truncate w-32">{user?.name}</p>
-                            <p className="text-[10px] text-brand-400 uppercase tracking-widest">{user?.role}</p>
+                        <div className="overflow-hidden">
+                            <p className="text-sm font-bold truncate">{user?.name}</p>
+                            <p className="text-[10px] text-brand-400 uppercase tracking-widest truncate">{user?.role}</p>
                         </div>
                     </div>
-                    {/* TRIGGER LOGOUT MODAL */}
-                    <button onClick={() => setShowLogoutModal(true)} className="w-full py-2 bg-red-500/10 text-red-400 font-bold rounded-lg hover:bg-red-500 hover:text-white transition-all text-sm">
+                    <button onClick={() => { setIsSidebarOpen(false); setShowLogoutModal(true); }} className="w-full py-2.5 bg-red-500/10 text-red-400 font-bold rounded-lg hover:bg-red-500 hover:text-white transition-all text-sm flex items-center justify-center gap-2">
                         Log Out
                     </button>
                 </div>
             </aside>
 
             {/* --- MAIN CONTENT AREA --- */}
-            <main className="flex-1 p-6 md:p-10 h-screen overflow-y-auto">
+            <main className="flex-1 p-4 md:p-10 overflow-y-auto w-full">
                 
                 {/* --- TAB 1: ACTIVITY FEED (Default) --- */}
                 {activeTab === 'feed' && (
                     <div className="max-w-4xl mx-auto animate-fade-in-up">
-                        <header className="mb-8">
-                            <h1 className="text-3xl font-extrabold text-slate-900">Welcome back, {user?.name.split(' ')[0]}!</h1>
-                            <p className="text-slate-500">Here is your recent academic feed and updates.</p>
+                        <header className="mb-6 md:mb-8">
+                            <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 mb-1">Welcome back, {user?.name.split(' ')[0]}!</h1>
+                            <p className="text-slate-500 text-sm md:text-base">Here is your recent academic feed and updates.</p>
                         </header>
 
                         {myClasses.length === 0 ? (
-                            <div className="bg-white/50 border-2 border-dashed border-brand-300 rounded-[32px] p-16 text-center mt-10">
+                            <div className="bg-white/50 border-2 border-dashed border-brand-300 rounded-[24px] md:rounded-[32px] p-8 md:p-16 text-center mt-6 md:mt-10">
                                 <span className="text-4xl block mb-4">📭</span>
-                                <h3 className="text-xl font-bold text-slate-800 mb-2">Your Feed is Empty</h3>
-                                <p className="text-slate-500 mb-6">Join a classroom to start seeing announcements, materials, and assignments here.</p>
-                                <button onClick={() => setActiveTab('classes')} className="px-6 py-3 bg-brand-500 text-slate-900 font-bold rounded-xl hover:bg-brand-400 transition-colors">
+                                <h3 className="text-lg md:text-xl font-bold text-slate-800 mb-2">Your Feed is Empty</h3>
+                                <p className="text-slate-500 mb-6 text-sm">Join a classroom to start seeing announcements, materials, and assignments here.</p>
+                                <button onClick={() => handleTabSwitch('classes')} className="px-6 py-3 bg-brand-500 text-slate-900 font-bold rounded-xl hover:bg-brand-400 transition-colors">
                                     Go to Classrooms
                                 </button>
                             </div>
                         ) : (
                             <div className="space-y-6">
-                                {/* Announcement Skeleton - Will populate deeply in Phase 3 */}
-                                <div className="bg-white rounded-[32px] p-8 border border-brand-200 shadow-sm relative overflow-hidden group">
-                                    <div className="absolute left-0 top-0 bottom-0 w-2 bg-brand-500"></div>
-                                    <h3 className="text-xs font-black text-brand-500 uppercase tracking-widest mb-4">Latest System Updates</h3>
-                                    <p className="text-slate-600 font-medium">No recent global announcements. Check your individual classes for specific assignments and materials!</p>
+                                {/* Announcement Skeleton */}
+                                <div className="bg-white rounded-[24px] md:rounded-[32px] p-6 md:p-8 border border-brand-200 shadow-sm relative overflow-hidden group">
+                                    <div className="absolute left-0 top-0 bottom-0 w-1.5 md:w-2 bg-brand-500"></div>
+                                    <h3 className="text-[10px] md:text-xs font-black text-brand-500 uppercase tracking-widest mb-3 md:mb-4">Latest System Updates</h3>
+                                    <p className="text-slate-600 font-medium text-sm md:text-base">No recent global announcements. Check your individual classes for specific assignments and materials!</p>
                                 </div>
 
-                                <h3 className="text-lg font-bold text-slate-800 mt-10 px-2">Quick Access to Your Courses</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <h3 className="text-base md:text-lg font-bold text-slate-800 mt-8 md:mt-10 px-1 md:px-2">Quick Access to Your Courses</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                                     {myClasses.map((cls) => (
-                                        <Link to={`/class/${cls._id}`} key={cls._id} className="bg-white p-6 rounded-2xl border border-brand-100 hover:border-brand-500 hover:shadow-lg transition-all flex items-center justify-between group">
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-10 h-10 bg-brand-100 rounded-lg flex items-center justify-center font-bold text-brand-600 group-hover:bg-brand-500 group-hover:text-white transition-colors">
+                                        <Link to={`/class/${cls._id}`} key={cls._id} className="bg-white p-4 md:p-6 rounded-2xl border border-brand-100 hover:border-brand-500 hover:shadow-lg transition-all flex items-center justify-between group">
+                                            <div className="flex items-center gap-3 md:gap-4">
+                                                <div className="w-10 h-10 bg-brand-100 rounded-lg flex items-center justify-center font-bold text-brand-600 group-hover:bg-brand-500 group-hover:text-white transition-colors shrink-0">
                                                     {cls.className.charAt(0)}
                                                 </div>
-                                                <h4 className="font-bold text-slate-800">{cls.className}</h4>
+                                                <h4 className="font-bold text-slate-800 text-sm md:text-base truncate">{cls.className}</h4>
                                             </div>
-                                            <span className="text-brand-400 group-hover:text-brand-600">➔</span>
+                                            <span className="text-brand-400 group-hover:text-brand-600 ml-2">➔</span>
                                         </Link>
                                     ))}
                                 </div>
@@ -263,29 +289,29 @@ const Dashboard = () => {
                 {/* --- TAB 2: PROFILE & SECURITY --- */}
                 {activeTab === 'profile' && (
                     <div className="max-w-4xl mx-auto animate-fade-in-up">
-                        <header className="mb-8">
-                            <h1 className="text-3xl font-extrabold text-slate-900">Personal Profile</h1>
-                            <p className="text-slate-500">Manage your personal information and security settings.</p>
+                        <header className="mb-6 md:mb-8">
+                            <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 mb-1">Personal Profile</h1>
+                            <p className="text-slate-500 text-sm md:text-base">Manage your personal information and security settings.</p>
                         </header>
 
                         {profileMessage && (
-                            <div className={`mb-6 p-4 rounded-2xl font-medium text-center shadow-sm border ${profileMessage.includes('Failed') ? 'bg-red-50 text-red-600 border-red-100' : 'bg-green-50 text-green-600 border-green-100'}`}>
+                            <div className={`mb-6 p-4 rounded-2xl font-medium text-center text-sm shadow-sm border ${profileMessage.includes('Failed') ? 'bg-red-50 text-red-600 border-red-100' : 'bg-green-50 text-green-600 border-green-100'}`}>
                                 {profileMessage.includes('Failed') ? '⚠️' : '✅'} {profileMessage}
                             </div>
                         )}
 
-                        <div className="bg-white rounded-[32px] p-8 md:p-10 shadow-sm border border-brand-200 mb-10">
-                            <div className="flex justify-between items-center mb-8 border-b border-brand-100 pb-4">
-                                <h2 className="text-xl font-bold text-slate-800">Profile Details</h2>
-                                <button onClick={() => setIsEditingProfile(!isEditingProfile)} className="px-4 py-2 bg-brand-100 text-brand-600 font-bold rounded-lg hover:bg-brand-200 transition-colors text-sm">
+                        <div className="bg-white rounded-[24px] md:rounded-[32px] p-6 md:p-10 shadow-sm border border-brand-200 mb-8 md:mb-10">
+                            <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6 md:mb-8 border-b border-brand-100 pb-4">
+                                <h2 className="text-lg md:text-xl font-bold text-slate-800">Profile Details</h2>
+                                <button onClick={() => setIsEditingProfile(!isEditingProfile)} className="w-full md:w-auto px-4 py-2 bg-brand-100 text-brand-600 font-bold rounded-lg hover:bg-brand-200 transition-colors text-sm">
                                     {isEditingProfile ? 'Cancel Edit' : 'Edit Profile'}
                                 </button>
                             </div>
 
                             <form onSubmit={handleProfileSubmit}>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div><label className="block text-sm font-bold text-slate-700 mb-2 ml-1">Full Name</label><input type="text" name="name" value={profileData.name || ''} disabled className="w-full px-4 py-3 bg-slate-50 border-2 border-transparent rounded-xl text-slate-800 text-sm opacity-60 cursor-not-allowed" /></div>
-                                    <div><label className="block text-sm font-bold text-slate-700 mb-2 ml-1">Email Address</label><input type="email" name="email" value={profileData.email || ''} disabled className="w-full px-4 py-3 bg-slate-50 border-2 border-transparent rounded-xl text-slate-800 text-sm opacity-60 cursor-not-allowed" /></div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                                    <div><label className="block text-xs md:text-sm font-bold text-slate-700 mb-1.5 ml-1">Full Name</label><input type="text" name="name" value={profileData.name || ''} disabled className="w-full px-4 py-3 bg-slate-50 border-2 border-transparent rounded-xl text-slate-800 text-sm opacity-60 cursor-not-allowed" /></div>
+                                    <div><label className="block text-xs md:text-sm font-bold text-slate-700 mb-1.5 ml-1">Email Address</label><input type="email" name="email" value={profileData.email || ''} disabled className="w-full px-4 py-3 bg-slate-50 border-2 border-transparent rounded-xl text-slate-800 text-sm opacity-60 cursor-not-allowed" /></div>
 
                                     {[
                                         { label: user?.role === 'student' ? 'Roll Number' : 'Faculty ID', name: 'rollNo', type: 'text' },
@@ -296,48 +322,48 @@ const Dashboard = () => {
                                         { label: 'Mother\'s Name', name: 'motherName', type: 'text' }
                                     ].map((field, idx) => (
                                         <div key={idx}>
-                                            <label className="block text-sm font-bold text-slate-700 mb-2 ml-1">{field.label}</label>
+                                            <label className="block text-xs md:text-sm font-bold text-slate-700 mb-1.5 ml-1">{field.label}</label>
                                             <input type={field.type} name={field.name} value={profileData[field.name] || ''} onChange={handleProfileChange} disabled={!isEditingProfile} className="w-full px-4 py-3 bg-slate-50 border-2 border-transparent rounded-xl text-slate-800 text-sm focus:outline-none focus:bg-white focus:border-brand-500 disabled:opacity-60 transition-all" />
                                         </div>
                                     ))}
                                     
                                     <div>
-                                        <label className="block text-sm font-bold text-slate-700 mb-2 ml-1">Gender</label>
+                                        <label className="block text-xs md:text-sm font-bold text-slate-700 mb-1.5 ml-1">Gender</label>
                                         <select name="gender" value={profileData.gender || ''} onChange={handleProfileChange} disabled={!isEditingProfile} className="w-full px-4 py-3 bg-slate-50 border-2 border-transparent rounded-xl text-slate-800 text-sm focus:outline-none focus:bg-white focus:border-brand-500 disabled:opacity-60 transition-all">
                                             <option value="">Select Gender...</option><option value="Male">Male</option><option value="Female">Female</option><option value="Other">Other</option>
                                         </select>
                                     </div>
                                 </div>
                                 {isEditingProfile && (
-                                    <div className="mt-8 flex justify-end">
-                                        <button type="submit" className="px-8 py-3 bg-brand-500 text-slate-900 font-bold rounded-xl hover:bg-brand-400 transition-all shadow-md">Save Changes</button>
+                                    <div className="mt-6 md:mt-8 flex justify-end">
+                                        <button type="submit" className="w-full md:w-auto px-8 py-3 bg-brand-500 text-slate-900 font-bold rounded-xl hover:bg-brand-400 transition-all shadow-md">Save Changes</button>
                                     </div>
                                 )}
                             </form>
                         </div>
 
                         {/* SECURITY & DANGER ZONE */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                            <div className="bg-white rounded-[32px] p-8 shadow-sm border border-brand-200">
-                                <h2 className="text-xl font-bold text-slate-800 mb-6 pb-4 border-b border-brand-100 flex items-center gap-2"><span>🔒</span> Security Settings</h2>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 pb-10">
+                            <div className="bg-white rounded-[24px] md:rounded-[32px] p-6 md:p-8 shadow-sm border border-brand-200">
+                                <h2 className="text-lg md:text-xl font-bold text-slate-800 mb-6 pb-4 border-b border-brand-100 flex items-center gap-2"><span>🔒</span> Security Settings</h2>
                                 
                                 {passwordMessage && (
-                                    <div className={`mb-4 p-3 rounded-xl text-xs font-bold ${passwordMessage.includes('successfully') ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
+                                    <div className={`mb-4 p-3 rounded-xl text-xs font-bold text-center ${passwordMessage.includes('successfully') ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
                                         {passwordMessage}
                                     </div>
                                 )}
 
-                                <form onSubmit={handlePasswordSubmit} className="flex flex-col gap-4">
+                                <form onSubmit={handlePasswordSubmit} className="flex flex-col gap-3 md:gap-4">
                                     <input type="password" name="currentPassword" placeholder="Current Password" value={passwordData.currentPassword} onChange={handlePasswordChange} required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:border-brand-500" />
                                     <input type="password" name="newPassword" placeholder="New Password" value={passwordData.newPassword} onChange={handlePasswordChange} required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:border-brand-500" />
                                     <input type="password" name="confirmPassword" placeholder="Confirm New Password" value={passwordData.confirmPassword} onChange={handlePasswordChange} required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:border-brand-500" />
-                                    <button type="submit" className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 mt-2">Update Password</button>
+                                    <button type="submit" className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 mt-2 transition-colors">Update Password</button>
                                 </form>
                             </div>
 
-                            <div className="bg-white rounded-[32px] p-8 shadow-sm border border-red-100">
-                                <h2 className="text-xl font-bold text-red-600 mb-6 pb-4 border-b border-red-50 flex items-center gap-2"><span>⚠️</span> Danger Zone</h2>
-                                <p className="text-slate-500 text-sm mb-6 leading-relaxed">
+                            <div className="bg-white rounded-[24px] md:rounded-[32px] p-6 md:p-8 shadow-sm border border-red-100">
+                                <h2 className="text-lg md:text-xl font-bold text-red-600 mb-6 pb-4 border-b border-red-50 flex items-center gap-2"><span>⚠️</span> Danger Zone</h2>
+                                <p className="text-slate-500 text-xs md:text-sm mb-6 leading-relaxed">
                                     Once you delete your account, there is no going back. All of your uploaded materials, doubts, and profile details will be permanently erased.
                                 </p>
                                 <button onClick={() => setShowDeleteModal(true)} className="w-full py-3 bg-red-50 text-red-600 font-bold rounded-xl hover:bg-red-500 hover:text-white transition-colors border border-red-100">
@@ -349,19 +375,19 @@ const Dashboard = () => {
                 )}
 
                 {/* --- TAB 3: CLASSROOMS --- */}
-                {/* ... (Keeps your exact working Classrooms code here from earlier!) ... */}
                 {activeTab === 'classes' && (
-                    <div className="max-w-5xl mx-auto animate-fade-in-up">
-                        <header className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                            <div><h1 className="text-3xl font-extrabold text-slate-900">Classrooms Hub</h1><p className="text-slate-500">Manage your courses, enrollments, and academic groups.</p></div>
+                    <div className="max-w-5xl mx-auto animate-fade-in-up pb-10">
+                        <header className="mb-6 md:mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                            <div><h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 mb-1">Classrooms Hub</h1><p className="text-slate-500 text-sm md:text-base">Manage your courses, enrollments, and academic groups.</p></div>
                         </header>
+                        
                         {classMessage && ( <div className={`mb-6 p-4 rounded-2xl text-sm font-bold text-center shadow-sm border ${classMessage.includes('Failed') ? 'bg-red-50 text-red-600 border-red-100' : 'bg-green-50 text-green-600 border-green-100'}`}>{classMessage}</div>)}
 
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                            <div className="lg:col-span-1 space-y-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
+                            <div className="lg:col-span-1 space-y-4 md:space-y-6">
                                 {user?.role === 'advisor' && (
-                                    <div className="bg-white p-6 rounded-[32px] shadow-sm border border-brand-200">
-                                        <h3 className="text-lg font-bold text-slate-800 mb-4">Create Classroom</h3>
+                                    <div className="bg-white p-6 rounded-[24px] md:rounded-[32px] shadow-sm border border-brand-200">
+                                        <h3 className="text-base md:text-lg font-bold text-slate-800 mb-4">Create Classroom</h3>
                                         <form onSubmit={handleCreateClass} className="flex flex-col gap-3">
                                             <input type="text" placeholder="Class Name (e.g., CS Sec A)" value={className} onChange={(e) => setClassName(e.target.value)} required className="w-full px-4 py-3 bg-brand-100 border-2 border-transparent rounded-xl text-sm focus:outline-none focus:bg-white focus:border-brand-500" />
                                             <button type="submit" disabled={isLoading} className="w-full py-3 bg-brand-500 text-slate-900 font-bold rounded-xl hover:bg-brand-400">
@@ -371,8 +397,8 @@ const Dashboard = () => {
                                     </div>
                                 )}
                                 {user?.role !== 'admin' && (
-                                    <div className="bg-slate-900 p-6 rounded-[32px] shadow-xl text-white">
-                                        <h3 className="text-lg font-bold mb-4">Join Classroom</h3>
+                                    <div className="bg-slate-900 p-6 rounded-[24px] md:rounded-[32px] shadow-xl text-white">
+                                        <h3 className="text-base md:text-lg font-bold mb-4">Join Classroom</h3>
                                         <form onSubmit={handleJoinClass} className="flex flex-col gap-3">
                                             <input type="text" placeholder="6-Digit Code" value={joinCode} onChange={(e) => setJoinCode(e.target.value)} required className="w-full px-4 py-3 bg-slate-800 border-2 border-transparent rounded-xl text-sm uppercase tracking-widest focus:border-brand-500" />
                                             {user?.role === 'teacher' && (
@@ -387,16 +413,16 @@ const Dashboard = () => {
                             </div>
 
                             <div className="lg:col-span-2">
-                                <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">Enrolled Classes <span className="bg-brand-300 text-[10px] px-2 py-0.5 rounded-full uppercase">{myClasses.length}</span></h3>
+                                <h3 className="text-lg md:text-xl font-bold text-slate-800 mb-4 md:mb-6 flex items-center gap-2">Enrolled Classes <span className="bg-brand-300 text-[10px] px-2 py-0.5 rounded-full uppercase">{myClasses.length}</span></h3>
                                 {myClasses.length === 0 ? (
-                                    <div className="bg-white/50 border-2 border-dashed border-brand-300 rounded-[32px] p-16 text-center"><p className="text-slate-400 font-medium">No classrooms joined yet.</p></div>
+                                    <div className="bg-white/50 border-2 border-dashed border-brand-300 rounded-[24px] md:rounded-[32px] p-10 md:p-16 text-center"><p className="text-slate-400 font-medium text-sm md:text-base">No classrooms joined yet.</p></div>
                                 ) : (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                                         {myClasses.map((cls) => (
-                                            <Link to={`/class/${cls._id}`} key={cls._id} className="group bg-white p-6 rounded-[32px] border border-brand-200 shadow-sm hover:shadow-xl hover:-translate-y-1 hover:border-brand-500 transition-all block">
-                                                <div className="flex justify-between items-start mb-4"><div className="w-12 h-12 bg-brand-100 rounded-xl flex items-center justify-center text-brand-500 font-bold text-xl group-hover:bg-brand-500 group-hover:text-white transition-colors">{cls.className.charAt(0)}</div></div>
-                                                <h4 className="text-lg font-bold text-slate-800 mb-4 group-hover:text-brand-500 transition-colors">{cls.className} ➔</h4>
-                                                <div className="pt-4 border-t border-brand-100 flex justify-between items-center"><span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Join Code</span><span className="text-sm font-mono font-bold text-slate-700 bg-brand-100 px-3 py-1 rounded-lg">{cls.groupCode}</span></div>
+                                            <Link to={`/class/${cls._id}`} key={cls._id} className="group bg-white p-5 md:p-6 rounded-[24px] md:rounded-[32px] border border-brand-200 shadow-sm hover:shadow-xl hover:-translate-y-1 hover:border-brand-500 transition-all block">
+                                                <div className="flex justify-between items-start mb-3 md:mb-4"><div className="w-10 h-10 md:w-12 md:h-12 bg-brand-100 rounded-xl flex items-center justify-center text-brand-500 font-bold text-lg md:text-xl group-hover:bg-brand-500 group-hover:text-white transition-colors">{cls.className.charAt(0)}</div></div>
+                                                <h4 className="text-base md:text-lg font-bold text-slate-800 mb-3 md:mb-4 group-hover:text-brand-500 transition-colors truncate">{cls.className} ➔</h4>
+                                                <div className="pt-3 md:pt-4 border-t border-brand-100 flex justify-between items-center"><span className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest">Join Code</span><span className="text-xs md:text-sm font-mono font-bold text-slate-700 bg-brand-100 px-2 py-1 md:px-3 md:py-1 rounded-lg">{cls.groupCode}</span></div>
                                             </Link>
                                         ))}
                                     </div>
