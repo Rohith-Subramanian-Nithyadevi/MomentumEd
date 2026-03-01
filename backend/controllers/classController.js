@@ -108,3 +108,45 @@ exports.getClassById = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+// @desc    Delete a class (Advisor only)
+// @route   DELETE /api/classes/:id
+exports.deleteClass = async (req, res) => {
+    try {
+        const classGroup = await ClassGroup.findById(req.params.id);
+        if (!classGroup) return res.status(404).json({ message: 'Class not found' });
+
+        // Ensure only the advisor who created it can delete it
+        if (classGroup.advisor.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+            return res.status(403).json({ message: 'Only the Class Advisor can delete this class.' });
+        }
+
+        await classGroup.deleteOne();
+        res.status(200).json({ message: 'Class deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Upload material to a subject folder (Teachers only)
+// @route   POST /api/classes/:id/materials
+exports.uploadMaterial = async (req, res) => {
+    try {
+        const { title, fileUrl, folderSubject } = req.body;
+        const classGroup = await ClassGroup.findById(req.params.id);
+        
+        if (!classGroup) return res.status(404).json({ message: 'Class not found' });
+
+        // Push the new material into the array
+        classGroup.materials.push({
+            title,
+            fileUrl,
+            uploadedBy: req.user._id,
+            folderSubject
+        });
+
+        await classGroup.save();
+        res.status(201).json({ message: 'Material added successfully!', classGroup });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
