@@ -14,17 +14,22 @@ const ClassDashboard = () => {
     const [selectedCourse, setSelectedCourse] = useState(null); 
     const [courseTab, setCourseTab] = useState('materials');
 
+    // --- MATERIALS & TIMETABLE STATES ---
     const [isUploading, setIsUploading] = useState(false);
     const [matTitle, setMatTitle] = useState('');
     const [matUrl, setMatUrl] = useState('');
+    const [timetableInput, setTimetableInput] = useState('');
+    const [isEditingTimetable, setIsEditingTimetable] = useState(false);
 
+    // --- ROSTER STATES ---
+    const [students, setStudents] = useState([]);
+
+    // --- DOUBTS STATES ---
     const [doubts, setDoubts] = useState([]);
     const [newDoubt, setNewDoubt] = useState({ title: '', description: '', referenceUrl: '' });
     const [answerInputs, setAnswerInputs] = useState({});
     const [replyInputs, setReplyInputs] = useState({}); 
     const [isPosting, setIsPosting] = useState(false);
-
-    // 🔥 NEW STATE: Tracks which doubts are currently expanded
     const [expandedDoubts, setExpandedDoubts] = useState({});
 
     const fetchClassDetails = async () => {
@@ -41,28 +46,57 @@ const ClassDashboard = () => {
         try {
             const { data } = await api.get(`/doubts/${id}/${subjectName}`);
             setDoubts(data);
-        } catch (err) {
-            console.error(err);
-        }
+        } catch (err) { console.error(err); }
+    };
+
+    const fetchStudents = async () => {
+        try {
+            const { data } = await api.get(`/classes/${id}/students`);
+            setStudents(data);
+        } catch (err) { console.error(err); }
     };
 
     useEffect(() => {
         fetchClassDetails();
-    }, [id]);
+        // If the user is an advisor, fetch the student roster
+        if (user?.role === 'advisor') {
+            fetchStudents();
+        }
+    }, [id, user]);
 
     useEffect(() => {
         if (selectedCourse) fetchSubjectDoubts(selectedCourse.subjectName);
     }, [selectedCourse]);
 
-    // Toggle expand/collapse for a specific doubt
     const toggleDoubt = (doubtId) => {
         setExpandedDoubts(prev => ({ ...prev, [doubtId]: !prev[doubtId] }));
     };
 
-    const isAdvisor = user.role === 'advisor';
-    const isCourseTeacher = user.role === 'teacher' && user._id === selectedCourse?.user?._id;
+    const isAdvisor = user?.role === 'advisor';
+    const isCourseTeacher = user?.role === 'teacher' && user._id === selectedCourse?.user?._id;
     const canModerate = isAdvisor || isCourseTeacher;
 
+    // --- ADVISOR HANDLERS ---
+    const handleUpdateTimetable = async (e) => {
+        e.preventDefault();
+        try {
+            await api.put(`/classes/${id}/timetable`, { timetableUrl: timetableInput });
+            setIsEditingTimetable(false);
+            setTimetableInput('');
+            fetchClassDetails();
+        } catch (err) { alert('Failed to update timetable'); }
+    };
+
+    const handleDeleteClass = async () => {
+        if (window.confirm('Delete this entire class? This cannot be undone.')) {
+            try {
+                await api.delete(`/classes/${id}`);
+                navigate('/dashboard');
+            } catch (err) { alert('Failed to delete class'); }
+        }
+    };
+
+    // --- TEACHER/MODERATOR HANDLERS ---
     const handleDeleteMaterial = async (materialId) => {
         if (window.confirm('Delete this material?')) {
             try {
@@ -77,7 +111,7 @@ const ClassDashboard = () => {
             try {
                 await api.delete(`/doubts/${doubtId}`);
                 fetchSubjectDoubts(selectedCourse.subjectName);
-            } catch (err) { alert('Failed to delete doubt. Ensure your backend is updated!'); }
+            } catch (err) { alert('Failed to delete doubt.'); }
         }
     };
 
@@ -86,7 +120,7 @@ const ClassDashboard = () => {
             try {
                 await api.delete(`/doubts/${doubtId}/answers/${answerId}`);
                 fetchSubjectDoubts(selectedCourse.subjectName);
-            } catch (err) { alert('Failed to delete answer. Ensure your backend is updated!'); }
+            } catch (err) { alert('Failed to delete answer.'); }
         }
     };
 
@@ -113,12 +147,8 @@ const ClassDashboard = () => {
     const handleAnswerDoubt = async (e, doubtId) => {
         e.preventDefault();
         try {
-            await api.post(`/doubts/${doubtId}/answers`, { 
-                text: answerInputs[doubtId]?.text || '', referenceUrl: answerInputs[doubtId]?.referenceUrl || ''
-            });
+            await api.post(`/doubts/${doubtId}/answers`, { text: answerInputs[doubtId]?.text || '', referenceUrl: answerInputs[doubtId]?.referenceUrl || '' });
             setAnswerInputs({ ...answerInputs, [doubtId]: { text: '', referenceUrl: '' } });
-            
-            // Automatically expand the doubt to show the new answer
             setExpandedDoubts(prev => ({ ...prev, [doubtId]: true }));
             fetchSubjectDoubts(selectedCourse.subjectName);
         } catch (err) { alert('Failed to post answer'); }
@@ -154,23 +184,58 @@ const ClassDashboard = () => {
 
             <div className="max-w-6xl mx-auto px-6 pt-10">
                 
-                {/* --- GRID VIEW (Class Overview) --- */}
+                {/* ========================================= */}
+                {/* GRID VIEW (Main Class Overview)           */}
+                {/* ========================================= */}
                 {!selectedCourse && (
                     <>
                         <div className="bg-slate-900 rounded-[40px] p-8 md:p-12 text-white shadow-2xl relative overflow-hidden mb-10">
-                            <div className="relative z-10">
-                                <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-2">{classData.className}</h1>
-                                <p className="text-slate-400 text-lg">Class Advisor: {classData.advisor?.name}</p>
+                            <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                                <div>
+                                    <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-2">{classData.className}</h1>
+                                    <p className="text-slate-400 text-lg">Class Advisor: {classData.advisor?.name}</p>
+                                    {isAdvisor && (
+                                        <div className="mt-4 inline-flex items-center gap-3 bg-white/10 px-4 py-2 rounded-xl border border-white/10">
+                                            <span className="text-xs font-bold uppercase tracking-widest text-brand-300">Join Code</span>
+                                            <span className="text-xl font-mono font-bold tracking-[0.2em]">{classData.groupCode}</span>
+                                        </div>
+                                    )}
+                                </div>
                                 {isAdvisor && (
-                                    <div className="mt-4 inline-flex items-center gap-3 bg-white/10 px-4 py-2 rounded-xl border border-white/10">
-                                        <span className="text-xs font-bold uppercase tracking-widest text-brand-300">Join Code</span>
-                                        <span className="text-xl font-mono font-bold tracking-[0.2em]">{classData.groupCode}</span>
-                                    </div>
+                                    <button onClick={handleDeleteClass} className="px-6 py-3 bg-red-500/10 text-red-400 border border-red-500/20 rounded-2xl font-bold hover:bg-red-500 hover:text-white transition-all active:scale-95">
+                                        Delete Classroom
+                                    </button>
                                 )}
                             </div>
                         </div>
 
-                        <section>
+                        {/* --- TIMETABLE WIDGET --- */}
+                        <div className="bg-white rounded-[32px] p-8 border border-brand-200 shadow-sm mb-10">
+                            <div className="flex justify-between items-center mb-6">
+                                <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-3"><span className="text-3xl">📅</span> Weekly Timetable</h2>
+                                {isAdvisor && (
+                                    <button onClick={() => setIsEditingTimetable(!isEditingTimetable)} className="px-4 py-2 bg-brand-100 text-brand-600 font-bold rounded-lg text-sm hover:bg-brand-200">
+                                        {isEditingTimetable ? 'Cancel Edit' : 'Update Timetable'}
+                                    </button>
+                                )}
+                            </div>
+
+                            {isEditingTimetable && isAdvisor && (
+                                <form onSubmit={handleUpdateTimetable} className="bg-brand-50 p-6 rounded-2xl mb-6 border border-brand-200 flex flex-col md:flex-row gap-4">
+                                    <input type="url" placeholder="Paste Timetable Link (G-Drive, PDF, Image URL)..." value={timetableInput} onChange={(e) => setTimetableInput(e.target.value)} required className="flex-1 px-4 py-3 bg-white border border-brand-200 rounded-xl text-sm focus:border-brand-500" />
+                                    <button type="submit" className="px-8 py-3 bg-brand-500 text-slate-900 font-bold rounded-xl hover:bg-brand-400">Save Link</button>
+                                </form>
+                            )}
+
+                            {classData.timetableUrl ? (
+                                <a href={classData.timetableUrl} target="_blank" rel="noopener noreferrer" className="inline-block px-8 py-4 bg-brand-500 text-slate-900 font-bold rounded-2xl hover:bg-brand-400 transition-all shadow-lg shadow-brand-500/20">View Schedule ➔</a>
+                            ) : (
+                                <p className="text-slate-500 font-medium italic">No timetable uploaded yet.</p>
+                            )}
+                        </div>
+
+                        {/* --- SUBJECT REPOSITORY --- */}
+                        <section className="mb-10">
                             <h2 className="text-2xl font-bold text-slate-800 mb-6 px-2 flex items-center gap-3"><span className="text-3xl">📁</span> Course Repository</h2>
                             {classData.teachers.length === 0 ? (
                                 <div className="bg-white/50 rounded-[32px] p-20 text-center border-2 border-dashed border-brand-300">
@@ -190,10 +255,60 @@ const ClassDashboard = () => {
                                 </div>
                             )}
                         </section>
+
+                        {/* --- ADVISOR: CLASS ROSTER --- */}
+                        {isAdvisor && (
+                            <section className="bg-white rounded-[32px] p-8 border border-brand-200 shadow-sm mb-10">
+                                <h2 className="text-2xl font-bold text-slate-800 mb-8 flex items-center gap-3"><span className="text-3xl">👥</span> Class Roster</h2>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                                    {/* Teachers List */}
+                                    <div>
+                                        <h3 className="text-sm font-black text-brand-500 uppercase tracking-widest mb-4 border-b border-brand-100 pb-2">Faculty & Instructors</h3>
+                                        {classData.teachers.length === 0 ? <p className="text-slate-400 italic text-sm">No teachers enrolled.</p> : (
+                                            <ul className="space-y-3">
+                                                {classData.teachers.map((t, i) => (
+                                                    <li key={i} className="flex items-center gap-3 bg-brand-50 p-3 rounded-xl border border-brand-100">
+                                                        <div className="w-8 h-8 bg-brand-200 rounded-full flex items-center justify-center text-brand-600 font-bold text-xs">{t.user?.name?.charAt(0)}</div>
+                                                        <div>
+                                                            <p className="text-sm font-bold text-slate-800 leading-none">{t.user?.name}</p>
+                                                            <p className="text-[10px] text-slate-500">{t.subjectName}</p>
+                                                        </div>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </div>
+
+                                    {/* Students List */}
+                                    <div>
+                                        <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4 border-b border-brand-100 pb-2">Registered Students ({students.length})</h3>
+                                        {students.length === 0 ? <p className="text-slate-400 italic text-sm">No students enrolled yet.</p> : (
+                                            <ul className="space-y-3 max-h-80 overflow-y-auto pr-2">
+                                                {students.map((s) => (
+                                                    <li key={s._id} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-200">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center text-slate-600 font-bold text-xs">{s.name.charAt(0)}</div>
+                                                            <div>
+                                                                <p className="text-sm font-bold text-slate-800 leading-none">{s.name}</p>
+                                                                <p className="text-[10px] text-slate-500">{s.email}</p>
+                                                            </div>
+                                                        </div>
+                                                        <span className="text-[10px] font-bold text-slate-400 uppercase bg-slate-200 px-2 py-1 rounded-md">{s.rollNo || 'No ID'}</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </div>
+                                </div>
+                            </section>
+                        )}
                     </>
                 )}
 
-                {/* --- SUBJECT WORKSPACE --- */}
+                {/* ========================================= */}
+                {/* SUBJECT WORKSPACE (Materials & Doubts)    */}
+                {/* ========================================= */}
                 {selectedCourse && (
                     <div className="animate-fade-in-up">
                         <div className="bg-slate-900 rounded-[40px] p-8 md:p-12 text-white shadow-2xl mb-8 relative overflow-hidden">
@@ -204,13 +319,11 @@ const ClassDashboard = () => {
                             </div>
                         </div>
 
-                        {/* Tabs */}
                         <div className="flex gap-4 mb-8 px-2">
                             <button onClick={() => setCourseTab('materials')} className={`px-6 py-3 rounded-2xl font-bold transition-all ${courseTab === 'materials' ? 'bg-brand-500 text-slate-900 shadow-lg' : 'bg-white text-slate-500 hover:bg-brand-200'}`}>📚 Study Materials</button>
                             <button onClick={() => setCourseTab('doubts')} className={`px-6 py-3 rounded-2xl font-bold transition-all ${courseTab === 'doubts' ? 'bg-brand-500 text-slate-900 shadow-lg' : 'bg-white text-slate-500 hover:bg-brand-200'}`}>💬 Discussion Forum</button>
                         </div>
 
-                        {/* TAB 1: MATERIALS */}
                         {courseTab === 'materials' && (
                             <div className="bg-white rounded-[32px] p-8 border border-brand-200 shadow-sm">
                                 <div className="flex justify-between items-center mb-8 pb-4 border-b border-brand-100">
@@ -255,10 +368,9 @@ const ClassDashboard = () => {
                             </div>
                         )}
 
-                        {/* TAB 2: DOUBTS FORUM */}
                         {courseTab === 'doubts' && (
                             <div className="space-y-8">
-                                {user.role === 'student' && (
+                                {user?.role === 'student' && (
                                     <div className="bg-white p-8 rounded-[32px] border border-brand-200 shadow-sm">
                                         <h3 className="text-xl font-bold text-slate-800 mb-6">Ask a Question</h3>
                                         <form onSubmit={handleAskDoubt} className="flex flex-col gap-4">
@@ -280,7 +392,7 @@ const ClassDashboard = () => {
                                     </div>
                                 ) : (
                                     doubts.map((doubt) => {
-                                        const isAuthor = doubt.postedBy?._id === user._id;
+                                        const isAuthor = doubt.postedBy?._id === user?._id;
 
                                         return (
                                             <div key={doubt._id} className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-brand-200 relative">
@@ -290,9 +402,7 @@ const ClassDashboard = () => {
                                                 )}
 
                                                 <div className="p-8">
-                                                    <div className="flex justify-between items-start mb-4 pr-10">
-                                                        <h4 className="text-xl font-bold text-slate-800 leading-tight">{doubt.title}</h4>
-                                                    </div>
+                                                    <h4 className="text-xl font-bold text-slate-800 leading-tight pr-10 mb-4">{doubt.title}</h4>
                                                     <p className="text-slate-600 mb-4">{doubt.description}</p>
                                                     
                                                     {doubt.referenceUrl && (
@@ -309,63 +419,55 @@ const ClassDashboard = () => {
                                                         </div>
                                                     </div>
 
-                                                    {/* 🔥 COLLAPSIBLE BUTTON HERE */}
-                                                    <button 
-                                                        onClick={() => toggleDoubt(doubt._id)}
-                                                        className="mt-6 px-4 py-2 bg-brand-100 text-brand-600 font-bold text-xs rounded-xl hover:bg-brand-500 hover:text-white transition-all"
-                                                    >
-                                                        {expandedDoubts[doubt._id] ? 'Hide Solutions' : `View Solutions (${doubt.answers.length})`}
-                                                    </button>
+                                                    <div className="mt-6 border-t border-brand-100 pt-6">
+                                                        <button onClick={() => toggleDoubt(doubt._id)} className="px-6 py-2.5 bg-brand-100 text-brand-600 font-bold text-sm rounded-xl hover:bg-brand-500 hover:text-white transition-all flex items-center gap-2">
+                                                            {expandedDoubts[doubt._id] ? '▲ Hide Solutions' : `▼ View Solutions (${doubt.answers.length})`}
+                                                        </button>
+                                                    </div>
 
-                                                    {/* 🔥 HIDDEN ANSWERS SECTION (Revealed on click) */}
                                                     {expandedDoubts[doubt._id] && (
-                                                        <div className="mt-6 pt-6 border-t border-brand-100 animate-fade-in-up">
-                                                            <div className="space-y-6">
-                                                                {doubt.answers.map((ans) => (
-                                                                    <div key={ans._id} className="bg-brand-50 p-5 rounded-2xl relative border border-brand-100 group">
-                                                                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-brand-500 rounded-l-2xl"></div>
-                                                                        
-                                                                        {(canModerate || ans.answeredBy?._id === user._id) && (
-                                                                            <button onClick={() => handleDeleteAnswer(doubt._id, ans._id)} className="absolute top-4 right-4 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">🗑️</button>
-                                                                        )}
+                                                        <div className="mt-6 space-y-6 animate-fade-in-up">
+                                                            {doubt.answers.map((ans) => (
+                                                                <div key={ans._id} className="bg-brand-50 p-5 rounded-2xl relative border border-brand-100 group">
+                                                                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-brand-500 rounded-l-2xl"></div>
+                                                                    
+                                                                    {(canModerate || ans.answeredBy?._id === user?._id) && (
+                                                                        <button onClick={() => handleDeleteAnswer(doubt._id, ans._id)} className="absolute top-4 right-4 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">🗑️</button>
+                                                                    )}
 
-                                                                        <p className="text-slate-700 text-sm mb-3 pr-6">{ans.text}</p>
-                                                                        {ans.referenceUrl && (
-                                                                            <a href={ans.referenceUrl} target="_blank" rel="noopener noreferrer" className="block text-xs text-brand-600 font-bold mb-3">🔗 Solution Reference</a>
-                                                                        )}
-                                                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">— {ans.answeredBy?.name}</p>
+                                                                    <p className="text-slate-700 text-sm mb-3 pr-6">{ans.text}</p>
+                                                                    {ans.referenceUrl && (
+                                                                        <a href={ans.referenceUrl} target="_blank" rel="noopener noreferrer" className="block text-xs text-brand-600 font-bold mb-3">🔗 Solution Reference</a>
+                                                                    )}
+                                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">— {ans.answeredBy?.name}</p>
 
-                                                                        {/* NESTED REPLIES */}
-                                                                        {ans.replies && ans.replies.length > 0 && (
-                                                                            <div className="ml-4 pl-4 border-l-2 border-brand-200 space-y-3 mb-4">
-                                                                                {ans.replies.map((reply, rIdx) => (
-                                                                                    <div key={rIdx} className="text-xs text-slate-600 bg-white p-3 rounded-xl shadow-sm border border-brand-100">
-                                                                                        <p className="mb-1">{reply.text}</p>
-                                                                                        <p className="text-[9px] font-bold text-slate-400 uppercase">— {reply.repliedBy?.name}</p>
-                                                                                    </div>
-                                                                                ))}
-                                                                            </div>
-                                                                        )}
-
-                                                                        {/* Reply Box */}
-                                                                        <form onSubmit={(e) => handleReplySubmit(e, doubt._id, ans._id)} className="flex gap-2 ml-4">
-                                                                            <input type="text" placeholder="Reply to this solution..." value={replyInputs[ans._id] || ''} onChange={(e) => setReplyInputs({...replyInputs, [ans._id]: e.target.value})} required className="flex-1 px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:border-brand-500" />
-                                                                            <button type="submit" className="px-4 py-2 bg-brand-100 text-brand-600 font-bold text-xs rounded-lg hover:bg-brand-500 hover:text-white">Reply</button>
-                                                                        </form>
-                                                                    </div>
-                                                                ))}
-
-                                                                {/* MAIN ANSWER BOX */}
-                                                                {!isAuthor && (
-                                                                    <form onSubmit={(e) => handleAnswerDoubt(e, doubt._id)} className="flex flex-col md:flex-row gap-3 mt-6 border-t border-brand-100 pt-6">
-                                                                        <div className="flex-1 flex flex-col gap-2">
-                                                                            <input type="text" placeholder="Provide a new solution..." value={answerInputs[doubt._id]?.text || ''} onChange={(e) => setAnswerInputs(prev => ({...prev, [doubt._id]: {...prev[doubt._id], text: e.target.value}}))} required className="px-5 py-3 bg-white border border-slate-200 rounded-xl text-sm" />
-                                                                            <input type="url" placeholder="Optional: Solution Image Link" value={answerInputs[doubt._id]?.referenceUrl || ''} onChange={(e) => setAnswerInputs(prev => ({...prev, [doubt._id]: {...prev[doubt._id], referenceUrl: e.target.value}}))} className="px-5 py-3 bg-white border border-slate-200 rounded-xl text-sm" />
+                                                                    {ans.replies && ans.replies.length > 0 && (
+                                                                        <div className="ml-4 pl-4 border-l-2 border-brand-200 space-y-3 mb-4">
+                                                                            {ans.replies.map((reply, rIdx) => (
+                                                                                <div key={rIdx} className="text-xs text-slate-600 bg-white p-3 rounded-xl shadow-sm border border-brand-100">
+                                                                                    <p className="mb-1">{reply.text}</p>
+                                                                                    <p className="text-[9px] font-bold text-slate-400 uppercase">— {reply.repliedBy?.name}</p>
+                                                                                </div>
+                                                                            ))}
                                                                         </div>
-                                                                        <button type="submit" className="px-6 py-3 bg-slate-900 text-white text-sm font-bold rounded-xl hover:bg-slate-800 self-start md:self-stretch">Submit Solution</button>
+                                                                    )}
+
+                                                                    <form onSubmit={(e) => handleReplySubmit(e, doubt._id, ans._id)} className="flex gap-2 ml-4">
+                                                                        <input type="text" placeholder="Reply to this solution..." value={replyInputs[ans._id] || ''} onChange={(e) => setReplyInputs({...replyInputs, [ans._id]: e.target.value})} required className="flex-1 px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:border-brand-500" />
+                                                                        <button type="submit" className="px-4 py-2 bg-brand-100 text-brand-600 font-bold text-xs rounded-lg hover:bg-brand-500 hover:text-white">Reply</button>
                                                                     </form>
-                                                                )}
-                                                            </div>
+                                                                </div>
+                                                            ))}
+
+                                                            {!isAuthor && (
+                                                                <form onSubmit={(e) => handleAnswerDoubt(e, doubt._id)} className="flex flex-col md:flex-row gap-3 mt-6">
+                                                                    <div className="flex-1 flex flex-col gap-2">
+                                                                        <input type="text" placeholder="Provide a new solution..." value={answerInputs[doubt._id]?.text || ''} onChange={(e) => setAnswerInputs(prev => ({...prev, [doubt._id]: {...prev[doubt._id], text: e.target.value}}))} required className="px-5 py-3 bg-white border border-slate-200 rounded-xl text-sm" />
+                                                                        <input type="url" placeholder="Optional: Solution Image Link" value={answerInputs[doubt._id]?.referenceUrl || ''} onChange={(e) => setAnswerInputs(prev => ({...prev, [doubt._id]: {...prev[doubt._id], referenceUrl: e.target.value}}))} className="px-5 py-3 bg-white border border-slate-200 rounded-xl text-sm" />
+                                                                    </div>
+                                                                    <button type="submit" className="px-6 py-3 bg-slate-900 text-white text-sm font-bold rounded-xl hover:bg-slate-800 self-start md:self-stretch">Submit Solution</button>
+                                                                </form>
+                                                            )}
                                                         </div>
                                                     )}
                                                 </div>

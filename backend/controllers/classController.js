@@ -1,6 +1,7 @@
 const ClassGroup = require('../models/ClassGroup');
 const User = require('../models/User');
 
+
 // Helper function to generate a random 6-character code
 const generateGroupCode = () => {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -162,6 +163,41 @@ exports.deleteMaterial = async (req, res) => {
         classGroup.materials.pull(req.params.materialId);
         await classGroup.save();
         res.json({ message: 'Material deleted' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+// @desc    Update class timetable (Advisor only)
+// @route   PUT /api/classes/:id/timetable
+exports.updateTimetable = async (req, res) => {
+    try {
+        const classGroup = await ClassGroup.findById(req.params.id);
+        if (!classGroup) return res.status(404).json({ message: 'Class not found' });
+        
+        // Security check: Only the advisor can update it
+        if (classGroup.advisor._id.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: 'Not authorized to update timetable' });
+        }
+
+        classGroup.timetableUrl = req.body.timetableUrl;
+        await classGroup.save();
+        res.json({ message: 'Timetable updated successfully', timetableUrl: classGroup.timetableUrl });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Get all students enrolled in a specific class
+// @route   GET /api/classes/:id/students
+exports.getClassStudents = async (req, res) => {
+    try {
+        // Find all users who are 'student' and have this class ID in their enrolledClasses array
+        const students = await User.find({ 
+            role: 'student', 
+            enrolledClasses: req.params.id 
+        }).select('name email rollNo'); // Only send back safe data
+        
+        res.json(students);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

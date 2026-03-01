@@ -1,30 +1,33 @@
 const express = require('express');
 
-// We are importing EVERYTHING your routes need right here:
+// 👇 Added updateTimetable and getClassStudents to the import list! 👇
 const { 
     createClass, 
     joinClass, 
     getMyClasses, 
-    getClassById,    // 👈 Added this!
+    getClassById, 
     uploadMaterial, 
     deleteClass, 
-    deleteMaterial   // 👈 And kept this!
+    deleteMaterial,
+    updateTimetable,
+    getClassStudents
 } = require('../controllers/classController');
 
 const { protect } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
-// Class Management Routes
 router.post('/', protect, createClass);
 router.post('/join', protect, joinClass);
 router.get('/my-classes', protect, getMyClasses);
 
-// Class Details & Deletion
 router.get('/:id', protect, getClassById);
 router.delete('/:id', protect, deleteClass);
 
-// Material Routes
+// 👇 NEW ADVISOR ROUTES 👇
+router.put('/:id/timetable', protect, updateTimetable);
+router.get('/:id/students', protect, getClassStudents);
+
 router.post('/:id/materials', protect, uploadMaterial);
 router.delete('/:id/materials/:materialId', protect, deleteMaterial);
 
