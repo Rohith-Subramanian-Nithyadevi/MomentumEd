@@ -7,11 +7,14 @@ const Dashboard = () => {
     const { user, logout } = useContext(AuthContext);
     const navigate = useNavigate();
     
-    // UI State for tabs (Sidebar navigation)
+    // UI State for tabs
     const [activeTab, setActiveTab] = useState('profile');
 
     // --- PROFILE STATES ---
-    const [profileData, setProfileData] = useState({});
+    const [profileData, setProfileData] = useState({
+        name: user?.name || '',
+        email: user?.email || '',
+    });
     const [isEditingProfile, setIsEditingProfile] = useState(false);
     const [profileMessage, setProfileMessage] = useState('');
 
@@ -28,14 +31,17 @@ const Dashboard = () => {
         const fetchDashboardData = async () => {
             try {
                 const profileRes = await api.get('/users/profile');
-                // Merge database profile with Context user to guarantee Name/Email
-                setProfileData({ 
+                
+                // Safely merge database data, falling back to context for name/email
+                setProfileData({
                     ...profileRes.data,
-                    name: user.name, 
-                    email: user.email 
+                    name: profileRes.data.name || user?.name || '',
+                    email: profileRes.data.email || user?.email || '',
+                    // Pre-format the date so the input box can read it properly
+                    dob: profileRes.data.dob ? profileRes.data.dob.split('T')[0] : '' 
                 });
                 
-                if (user.role !== 'admin') {
+                if (user?.role !== 'admin') {
                     const classesRes = await api.get('/classes/my-classes');
                     setMyClasses(classesRes.data);
                 }
@@ -43,7 +49,7 @@ const Dashboard = () => {
                 console.error('Failed to fetch dashboard data', err);
             }
         };
-        fetchDashboardData();
+        if (user) fetchDashboardData();
     }, [user]);
 
     // --- PROFILE HANDLERS ---
@@ -54,16 +60,19 @@ const Dashboard = () => {
     const handleProfileSubmit = async (e) => {
         e.preventDefault();
         try {
-            // Clean up empty date strings so MongoDB doesn't crash
+            // Create a safe payload
             const payload = { ...profileData };
-            if (payload.dob === '') payload.dob = null;
+            
+            // 🔥 FIX: Remove empty fields so MongoDB doesn't crash expecting a Date/Number
+            if (!payload.dob) delete payload.dob;
+            if (!payload.age) delete payload.age;
 
             await api.put('/users/profile', payload);
             setProfileMessage('Profile updated successfully!');
             setIsEditingProfile(false);
             setTimeout(() => setProfileMessage(''), 3000);
         } catch (err) {
-            setProfileMessage('Failed to update profile.');
+            setProfileMessage(err.response?.data?.message || 'Failed to update profile.');
         }
     };
 
@@ -95,7 +104,7 @@ const Dashboard = () => {
         try {
             const { data } = await api.post('/classes/join', { 
                 groupCode: joinCode, 
-                teacherSubject: user.role === 'teacher' ? teacherSubject : undefined 
+                teacherSubject: user?.role === 'teacher' ? teacherSubject : undefined 
             });
             setJoinCode('');
             setTeacherSubject('');
@@ -124,16 +133,15 @@ const Dashboard = () => {
                         <button onClick={() => setActiveTab('profile')} className={`text-left px-4 py-3 rounded-xl font-medium transition-all ${activeTab === 'profile' ? 'bg-brand-500 text-slate-900 shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
                             👤 My Profile
                         </button>
-                        {/* 👇 Hide Classrooms from Admin 👇 */}
-                        {user.role !== 'admin' && (
+                        
+                        {/* 🔥 FIX: Only ONE Classrooms button will render here now */}
+                        {user?.role !== 'admin' && (
                             <button onClick={() => setActiveTab('classes')} className={`text-left px-4 py-3 rounded-xl font-medium transition-all ${activeTab === 'classes' ? 'bg-brand-500 text-slate-900 shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
                                 📚 Classrooms
                             </button>
                         )}
-                        <button onClick={() => setActiveTab('classes')} className={`text-left px-4 py-3 rounded-xl font-medium transition-all ${activeTab === 'classes' ? 'bg-brand-500 text-slate-900 shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-                            📚 Classrooms
-                        </button>
-                        {user.role === 'admin' && (
+
+                        {user?.role === 'admin' && (
                             <Link to="/admin" className="text-left px-4 py-3 rounded-xl font-medium text-slate-400 hover:bg-slate-800 hover:text-white transition-all">
                                 🛡️ Admin Panel
                             </Link>
@@ -143,12 +151,12 @@ const Dashboard = () => {
 
                 <div className="p-6 border-t border-slate-800">
                     <div className="flex items-center gap-3 mb-4">
-                        <div className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center font-bold text-brand-400">
-                            {user.name.charAt(0)}
+                        <div className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center font-bold text-brand-400 uppercase">
+                            {user?.name?.charAt(0) || '?'}
                         </div>
                         <div>
-                            <p className="text-sm font-bold truncate w-32">{user.name}</p>
-                            <p className="text-[10px] text-brand-400 uppercase tracking-widest">{user.role}</p>
+                            <p className="text-sm font-bold truncate w-32">{user?.name}</p>
+                            <p className="text-[10px] text-brand-400 uppercase tracking-widest">{user?.role}</p>
                         </div>
                     </div>
                     <button onClick={logout} className="w-full py-2 bg-red-500/10 text-red-400 font-bold rounded-lg hover:bg-red-500 hover:text-white transition-all text-sm">
@@ -168,9 +176,10 @@ const Dashboard = () => {
                             <p className="text-slate-500">Manage your personal information and academic details.</p>
                         </header>
 
+                        {/* 🔥 FIX: Error messages now show up in red, success in green */}
                         {profileMessage && (
-                            <div className="mb-6 p-4 bg-green-50 text-green-600 border border-green-100 rounded-2xl font-medium text-center shadow-sm">
-                                ✅ {profileMessage}
+                            <div className={`mb-6 p-4 rounded-2xl font-medium text-center shadow-sm border ${profileMessage.includes('Failed') ? 'bg-red-50 text-red-600 border-red-100' : 'bg-green-50 text-green-600 border-green-100'}`}>
+                                {profileMessage.includes('Failed') ? '⚠️' : '✅'} {profileMessage}
                             </div>
                         )}
 
@@ -187,11 +196,19 @@ const Dashboard = () => {
 
                             <form onSubmit={handleProfileSubmit}>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    {/* Form Fields mapped dynamically for cleaner code */}
+                                    {/* Name and Email (Always disabled to prevent accidental lockouts) */}
+                                    <div>
+                                        <label className="block text-sm font-bold text-slate-700 mb-2 ml-1">Full Name</label>
+                                        <input type="text" name="name" value={profileData.name || ''} disabled className="w-full px-4 py-3 bg-slate-50 border-2 border-transparent rounded-xl text-slate-800 text-sm opacity-60 cursor-not-allowed" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-slate-700 mb-2 ml-1">Email Address</label>
+                                        <input type="email" name="email" value={profileData.email || ''} disabled className="w-full px-4 py-3 bg-slate-50 border-2 border-transparent rounded-xl text-slate-800 text-sm opacity-60 cursor-not-allowed" />
+                                    </div>
+
+                                    {/* Dynamic Fields */}
                                     {[
-                                        { label: 'Full Name', name: 'name', type: 'text', disabled: true }, // Usually shouldn't change name easily
-                                        { label: 'Email Address', name: 'email', type: 'email', disabled: true },
-                                        { label: user.role === 'student' ? 'Roll Number' : 'Faculty ID', name: 'rollNo', type: 'text' },
+                                        { label: user?.role === 'student' ? 'Roll Number' : 'Faculty ID', name: 'rollNo', type: 'text' },
                                         { label: 'Date of Birth', name: 'dob', type: 'date' },
                                         { label: 'Age', name: 'age', type: 'number' },
                                         { label: 'Phone Number', name: 'phone', type: 'tel' },
@@ -203,9 +220,9 @@ const Dashboard = () => {
                                             <input 
                                                 type={field.type} 
                                                 name={field.name}
-                                                value={profileData[field.name]?.split('T')[0] || ''} // Format date correctly if exists
+                                                value={profileData[field.name] || ''} 
                                                 onChange={handleProfileChange}
-                                                disabled={!isEditingProfile || field.disabled}
+                                                disabled={!isEditingProfile}
                                                 className="w-full px-4 py-3 bg-slate-50 border-2 border-transparent rounded-xl text-slate-800 text-sm focus:outline-none focus:bg-white focus:border-brand-500 disabled:opacity-60 transition-all"
                                             />
                                         </div>
@@ -241,7 +258,7 @@ const Dashboard = () => {
                     </div>
                 )}
 
-                {/* --- CLASSROOMS TAB --- */}
+                {/* --- CLASSROOMS TAB (Keeping existing logic) --- */}
                 {activeTab === 'classes' && (
                     <div className="max-w-5xl mx-auto">
                         <header className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -258,18 +275,12 @@ const Dashboard = () => {
                         )}
 
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                            
-                            {/* FORMS SECTION */}
                             <div className="lg:col-span-1 space-y-6">
-                                {/* ADVISOR CREATE FORM */}
                                 {user?.role === 'advisor' && (
                                     <div className="bg-white p-6 rounded-[32px] shadow-sm border border-brand-200">
                                         <h3 className="text-lg font-bold text-slate-800 mb-4">Create Classroom</h3>
                                         <form onSubmit={handleCreateClass} className="flex flex-col gap-3">
-                                            <input 
-                                                type="text" placeholder="Class Name (e.g., CS Sec A)" value={className} onChange={(e) => setClassName(e.target.value)} required 
-                                                className="w-full px-4 py-3 bg-brand-100 border-2 border-transparent rounded-xl text-sm focus:outline-none focus:bg-white focus:border-brand-500"
-                                            />
+                                            <input type="text" placeholder="Class Name (e.g., CS Sec A)" value={className} onChange={(e) => setClassName(e.target.value)} required className="w-full px-4 py-3 bg-brand-100 border-2 border-transparent rounded-xl text-sm focus:outline-none focus:bg-white focus:border-brand-500" />
                                             <button type="submit" disabled={isLoading} className="w-full py-3 bg-brand-500 text-slate-900 font-bold rounded-xl hover:bg-brand-400">
                                                 {isLoading ? 'Processing...' : 'Generate Class'}
                                             </button>
@@ -278,20 +289,13 @@ const Dashboard = () => {
                                     </div>
                                 )}
 
-                                {/* STUDENT/TEACHER JOIN FORM */}
                                 {user?.role !== 'admin' && (
                                     <div className="bg-slate-900 p-6 rounded-[32px] shadow-xl text-white">
                                         <h3 className="text-lg font-bold mb-4">Join Classroom</h3>
                                         <form onSubmit={handleJoinClass} className="flex flex-col gap-3">
-                                            <input 
-                                                type="text" placeholder="6-Digit Code" value={joinCode} onChange={(e) => setJoinCode(e.target.value)} required 
-                                                className="w-full px-4 py-3 bg-slate-800 border-2 border-transparent rounded-xl text-sm placeholder-slate-500 uppercase tracking-widest focus:outline-none focus:border-brand-500"
-                                            />
+                                            <input type="text" placeholder="6-Digit Code" value={joinCode} onChange={(e) => setJoinCode(e.target.value)} required className="w-full px-4 py-3 bg-slate-800 border-2 border-transparent rounded-xl text-sm placeholder-slate-500 uppercase tracking-widest focus:outline-none focus:border-brand-500" />
                                             {user?.role === 'teacher' && (
-                                                <input 
-                                                    type="text" placeholder="Subject you teach" value={teacherSubject} onChange={(e) => setTeacherSubject(e.target.value)} required 
-                                                    className="w-full px-4 py-3 bg-slate-800 border-2 border-transparent rounded-xl text-sm placeholder-slate-500 focus:outline-none focus:border-brand-500"
-                                                />
+                                                <input type="text" placeholder="Subject you teach" value={teacherSubject} onChange={(e) => setTeacherSubject(e.target.value)} required className="w-full px-4 py-3 bg-slate-800 border-2 border-transparent rounded-xl text-sm placeholder-slate-500 focus:outline-none focus:border-brand-500" />
                                             )}
                                             <button type="submit" disabled={isLoading} className="w-full py-3 bg-brand-500 text-slate-900 font-bold rounded-xl hover:bg-brand-400">
                                                 {isLoading ? 'Joining...' : 'Enter Classroom'}
@@ -301,7 +305,6 @@ const Dashboard = () => {
                                 )}
                             </div>
 
-                            {/* CLASS LIST SECTION */}
                             <div className="lg:col-span-2">
                                 <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
                                     Enrolled Classes <span className="bg-brand-300 text-[10px] px-2 py-0.5 rounded-full uppercase">{myClasses.length}</span>
