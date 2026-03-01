@@ -22,7 +22,7 @@ const Dashboard = () => {
                         <h3>Student Actions</h3>
                         <ul>
                             <li><Link to="/doubts">Ask a Doubt</Link></li>
-                            <li style={{ color: '#999' }}>Join a Class (Coming Soon)</li>
+                            <li><Link to="/classes">My Classrooms & Join Codes</Link></li>
                         </ul>
                     </div>
                 )}
@@ -44,7 +44,7 @@ const Dashboard = () => {
                         <h3>Class Advisor Actions</h3>
                         <ul>
                             <li><Link to="/doubts">View and Answer Doubts</Link></li>
-                            <li style={{ color: '#999' }}>Create a Class Group (Coming Soon)</li>
+                            <li><Link to="/classes">Manage Classrooms</Link></li>
                             <li style={{ color: '#999' }}>Upload Timetable (Coming Soon)</li>
                         </ul>
                     </div>

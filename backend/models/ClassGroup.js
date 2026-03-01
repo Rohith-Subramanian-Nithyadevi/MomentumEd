@@ -2,16 +2,25 @@ const mongoose = require('mongoose');
 
 const classGroupSchema = new mongoose.Schema({
     className: { type: String, required: true },
-    subject: { type: String, required: true },
-    groupCode: { type: String, required: true, unique: true }, // The 6-digit join code
-    advisor: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // Creator
-    teachers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // Teachers who joined
-    students: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // Students who joined
-    timetableUrl: { type: String, default: '' }, // URL for the uploaded timetable file
+    subject: { type: String, required: true }, // Overall branch/course (e.g., Computer Science)
+    groupCode: { type: String, required: true, unique: true },
+    advisor: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    students: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    
+    // UPDATED: Teachers now create a "Folder" when they join
+    teachers: [{
+        user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        subjectName: { type: String, required: true } // e.g., "Data Structures", "Java"
+    }],
+    
+    timetableUrl: { type: String, default: '' },
+    
+    // UPDATED: Materials now belong to a specific teacher's folder
     materials: [{
         title: String,
         fileUrl: String,
         uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        folderSubject: { type: String, required: true }, // Links to the teacher's subjectName
         createdAt: { type: Date, default: Date.now }
     }]
 }, { timestamps: true });

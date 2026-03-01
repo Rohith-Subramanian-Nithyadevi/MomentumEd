@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import Doubts from './pages/Doubts';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminDashboard from './pages/AdminDashboard';
+import Classes from './pages/Classes';
 
 function App() {
     return (
@@ -27,6 +28,14 @@ function App() {
                         element={
                             <ProtectedRoute>
                                 <Dashboard />
+                            </ProtectedRoute>
+                        } 
+                    />
+                    <Route 
+                        path="/classes" 
+                        element={
+                            <ProtectedRoute>
+                                <Classes />
                             </ProtectedRoute>
                         } 
                     />
