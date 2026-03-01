@@ -1,24 +1,31 @@
 const express = require('express');
 
-// 👇 We only need this ONE import line 👇
-const { createClass, joinClass, getMyClasses, getClassDetails, uploadMaterial, deleteClass, deleteMaterial } = require('../controllers/classController');
-const { protect, restrictTo } = require('../middleware/authMiddleware');
+// We are importing EVERYTHING your routes need right here:
+const { 
+    createClass, 
+    joinClass, 
+    getMyClasses, 
+    getClassById,    // 👈 Added this!
+    uploadMaterial, 
+    deleteClass, 
+    deleteMaterial   // 👈 And kept this!
+} = require('../controllers/classController');
+
+const { protect } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
-// Get the user's classes 
+// Class Management Routes
+router.post('/', protect, createClass);
+router.post('/join', protect, joinClass);
 router.get('/my-classes', protect, getMyClasses);
 
-// Join a class using a code 
-router.post('/join', protect, joinClass);
-
-// Create a class 
-router.post('/', protect, restrictTo('advisor'), createClass);
-
-// Get a specific class by ID
+// Class Details & Deletion
 router.get('/:id', protect, getClassById);
-router.delete('/:id', protect, restrictTo('advisor', 'admin'), deleteClass);
-router.post('/:id/materials', protect, restrictTo('teacher'), uploadMaterial);
+router.delete('/:id', protect, deleteClass);
+
+// Material Routes
+router.post('/:id/materials', protect, uploadMaterial);
 router.delete('/:id/materials/:materialId', protect, deleteMaterial);
 
 module.exports = router;
