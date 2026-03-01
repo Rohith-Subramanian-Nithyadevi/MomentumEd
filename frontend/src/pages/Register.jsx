@@ -7,6 +7,7 @@ const Register = () => {
         name: '', email: '', password: '', role: 'student'
     });
     const [error, setError] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
     const navigate = useNavigate();
 
     const handleChange = (e) => {
@@ -15,38 +16,111 @@ const Register = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setIsLoading(true);
+        setError('');
         try {
-            // Send data to our backend register route
             await api.post('/auth/register', formData);
-            // If successful, send them to the login page
             navigate('/login');
         } catch (err) {
             setError(err.response?.data?.message || 'Registration failed');
+        } finally {
+            setIsLoading(false);
         }
     };
 
     return (
-        <div style={{ maxWidth: '400px', margin: '50px auto', padding: '20px' }}>
-            <h2>Sign Up for MomentumEd</h2>
-            {error && <p style={{ color: 'red' }}>{error}</p>}
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-100 to-brand-200 p-4 font-sans">
             
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                <input type="text" name="name" placeholder="Full Name" onChange={handleChange} required />
-                <input type="email" name="email" placeholder="Email" onChange={handleChange} required />
-                <input type="password" name="password" placeholder="Password" onChange={handleChange} required />
+            {/* Main Glass Card */}
+            <div className="bg-white w-full max-w-md p-10 rounded-[24px] shadow-[0_20px_40px_rgba(171,196,255,0.3)] border border-white">
                 
-                <select name="role" onChange={handleChange} style={{ padding: '10px' }}>
-                    <option value="student">Student</option>
-                    <option value="teacher">Teacher</option>
-                    <option value="advisor">Class Advisor</option>
-                    <option value="admin">Admin</option>
-                </select>
+                {/* Header */}
+                <div className="text-center mb-8">
+                    <h2 className="text-3xl font-bold text-slate-800 mb-2 tracking-tight">MomentumEd</h2>
+                    <p className="text-slate-500 text-sm">Create your account to get started.</p>
+                </div>
 
-                <button type="submit">Register</button>
-            </form>
-            <p style={{ marginTop: '15px' }}>
-                Already have an account? <Link to="/login">Login here</Link>
-            </p>
+                {/* Error Alert Box */}
+                {error && (
+                    <div className="bg-red-50 text-red-600 p-3 rounded-xl mb-6 text-sm text-center border border-red-100">
+                        {error}
+                    </div>
+                )}
+
+                <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                    
+                    {/* Full Name */}
+                    <div>
+                        <label className="block text-sm font-medium text-slate-800 mb-1.5 ml-1">Full Name</label>
+                        <input 
+                            type="text" 
+                            name="name"
+                            placeholder="John Doe" 
+                            onChange={handleChange} 
+                            required 
+                            className="w-full px-4 py-3 bg-brand-100 border-2 border-transparent rounded-xl text-slate-800 text-sm placeholder-slate-400 transition-all duration-300 focus:outline-none focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/20"
+                        />
+                    </div>
+
+                    {/* Email */}
+                    <div>
+                        <label className="block text-sm font-medium text-slate-800 mb-1.5 ml-1">Email Address</label>
+                        <input 
+                            type="email" 
+                            name="email"
+                            placeholder="name@example.com" 
+                            onChange={handleChange} 
+                            required 
+                            className="w-full px-4 py-3 bg-brand-100 border-2 border-transparent rounded-xl text-slate-800 text-sm placeholder-slate-400 transition-all duration-300 focus:outline-none focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/20"
+                        />
+                    </div>
+
+                    {/* Password */}
+                    <div>
+                        <label className="block text-sm font-medium text-slate-800 mb-1.5 ml-1">Password</label>
+                        <input 
+                            type="password" 
+                            name="password"
+                            placeholder="••••••••" 
+                            onChange={handleChange} 
+                            required 
+                            className="w-full px-4 py-3 bg-brand-100 border-2 border-transparent rounded-xl text-slate-800 text-sm placeholder-slate-400 transition-all duration-300 focus:outline-none focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/20"
+                        />
+                    </div>
+
+                    {/* Role Selection */}
+                    <div>
+                        <label className="block text-sm font-medium text-slate-800 mb-1.5 ml-1">Account Role</label>
+                        <select 
+                            name="role" 
+                            onChange={handleChange}
+                            className="w-full px-4 py-3 bg-brand-100 border-2 border-transparent rounded-xl text-slate-800 text-sm appearance-none cursor-pointer transition-all duration-300 focus:outline-none focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/20"
+                        >
+                            <option value="student">Student</option>
+                            <option value="teacher">Teacher</option>
+                            <option value="advisor">Class Advisor</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+
+                    {/* Register Button */}
+                    <button 
+                        type="submit" 
+                        disabled={isLoading}
+                        className="w-full mt-4 py-4 bg-brand-500 hover:bg-brand-400 text-slate-900 text-base font-semibold rounded-xl transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(171,196,255,0.4)] disabled:opacity-70 disabled:cursor-not-allowed"
+                    >
+                        {isLoading ? 'Creating Account...' : 'Register'}
+                    </button>
+                </form>
+
+                {/* Footer */}
+                <div className="text-center mt-8 text-sm text-slate-500">
+                    Already have an account?{' '}
+                    <Link to="/login" className="text-brand-500 font-semibold hover:text-slate-800 transition-colors">
+                        Login here
+                    </Link>
+                </div>
+            </div>
         </div>
     );
 };
